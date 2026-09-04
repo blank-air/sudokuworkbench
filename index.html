@@ -1,0 +1,1936 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Sudoku Workbench</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#10141C;
+  --surface:#171E29;
+  --surface-2:#1F2836;
+  --surface-3:#27313F;
+  --edge:#2C3849;
+  --rule:#546683;
+  --cell:#141A24;
+  --cell-alt:#171E29;
+  --given:#E8EEF8;
+  --entry:#54C7F0;
+  --pencil:#6F809A;
+  --pencil-on:#A7BAD6;
+  --danger:#FF6F6B;
+  --danger-bg:rgba(255,111,107,.16);
+  --amber:#FFB44D;
+  --amber-bg:rgba(255,180,77,.14);
+  --violet:#B693F7;
+  --violet-bg:rgba(182,147,247,.20);
+  --mint:#48D9A0;
+  --mint-bg:rgba(72,217,160,.14);
+  --text:#D3DCEA;
+  --text-dim:#8695AC;
+  --serif:'Instrument Serif',Georgia,serif;
+  --sans:'IBM Plex Sans',system-ui,sans-serif;
+  --mono:'IBM Plex Mono',monospace;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+button,.cell,.mcell,input,.extab,.pause-veil{touch-action:manipulation;}
+.board{touch-action:none;}
+html,body{margin:0;padding:0;}
+body{
+  background:
+    radial-gradient(1100px 600px at 12% -8%, #1B2740 0%, transparent 55%),
+    radial-gradient(900px 500px at 100% 0%, #241E3A 0%, transparent 50%),
+    var(--bg);
+  background-attachment:fixed;
+  color:var(--text);
+  font-family:var(--sans);
+  font-size:15px;
+  min-height:100vh;
+  min-height:100dvh;
+  padding:calc(26px + env(safe-area-inset-top)) calc(18px + env(safe-area-inset-right))
+          calc(70px + env(safe-area-inset-bottom)) calc(18px + env(safe-area-inset-left));
+  -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:1180px;margin:0 auto;}
+
+/* ---------- header ---------- */
+header{display:flex;align-items:baseline;gap:16px;flex-wrap:wrap;margin-bottom:20px;}
+header h1{
+  font-family:var(--serif);font-weight:400;font-size:2.7rem;line-height:1;
+  margin:0;color:#F2F6FC;letter-spacing:.01em;
+}
+header h1 em{font-style:italic;color:var(--amber);}
+header .tag{
+  font-family:var(--mono);font-size:.72rem;color:var(--text-dim);
+  border-left:1px solid var(--edge);padding-left:14px;
+}
+
+/* ---------- source bar ---------- */
+.sourcebar{
+  background:var(--surface);border:1px solid var(--edge);border-radius:10px;
+  padding:14px 16px;margin-bottom:20px;
+  display:flex;gap:10px;flex-wrap:wrap;align-items:center;
+}
+.sourcebar .lbl{font-family:var(--mono);font-size:.7rem;color:var(--text-dim);}
+input[type=text]{
+  font-family:var(--mono);font-size:.8rem;padding:8px 10px;
+  background:var(--cell);border:1px solid var(--edge);border-radius:7px;
+  color:var(--text);width:240px;max-width:100%;
+}
+input[type=text]:focus{outline:none;border-color:var(--entry);}
+.btn{
+  font-family:var(--sans);font-weight:500;font-size:.8rem;
+  padding:8px 14px;border-radius:7px;cursor:pointer;line-height:1.2;
+  border:1px solid var(--edge);background:var(--surface-2);color:var(--text);
+  transition:background .12s,border-color .12s,color .12s;
+}
+
+.btn:disabled{opacity:.35;cursor:not-allowed;}
+.btn.primary{background:var(--entry);border-color:var(--entry);color:#08141B;font-weight:600;}
+
+.btn.amber{background:var(--amber);border-color:var(--amber);color:#221602;font-weight:600;}
+
+.btn.tiny{padding:5px 10px;font-size:.72rem;}
+.btn.on{border-color:var(--entry);color:var(--entry);background:rgba(84,199,240,.12);}
+.tokenrow{display:flex;gap:8px;align-items:center;flex-basis:100%;flex-wrap:wrap;
+  padding-top:12px;margin-top:2px;border-top:1px solid var(--edge);}
+.tokenrow input{flex:1 1 320px;min-width:220px;font-size:.72rem;letter-spacing:.02em;}
+.btn.gen[disabled]{opacity:.4;}
+.msg{font-family:var(--mono);font-size:.74rem;color:var(--danger);flex-basis:100%;min-height:1em;}
+.msg.ok{color:var(--mint);}
+
+/* ---------- layout ---------- */
+.main{display:grid;grid-template-columns:minmax(300px,480px) 1fr;gap:24px;align-items:start;}
+@media(max-width:900px){.main{grid-template-columns:1fr;}}
+
+.card{background:var(--surface);border:1px solid var(--edge);border-radius:12px;padding:18px;}
+.card + .card{margin-top:18px;}
+
+/* ---------- board ---------- */
+.board{
+  display:grid;grid-template-columns:repeat(9,1fr);
+  width:100%;aspect-ratio:1;
+  border:2px solid var(--rule);border-radius:6px;overflow:hidden;
+  touch-action:none;user-select:none;
+  background:var(--edge);gap:1px;
+}
+.cell{
+  background:var(--cell);position:relative;
+  display:flex;align-items:center;justify-content:center;
+  font-family:var(--mono);font-size:clamp(.95rem,3.4vw,1.45rem);font-weight:500;
+  color:var(--entry);cursor:pointer;
+  transition:background .1s;
+}
+.cell:nth-child(18n+1),.cell:nth-child(18n+2),.cell:nth-child(18n+3),
+.cell:nth-child(18n+7),.cell:nth-child(18n+8),.cell:nth-child(18n+9),
+.cell:nth-child(18n+13),.cell:nth-child(18n+14),.cell:nth-child(18n+15){background:var(--cell-alt);}
+.cell.br{border-right:2px solid var(--rule);}
+.cell.bb{border-bottom:2px solid var(--rule);}
+.cell.given{color:var(--given);font-weight:600;}
+.cell.peer{background:rgba(84,199,240,.10);}
+.cell.peerbox{background:rgba(84,199,240,.15);}
+.cell.match{background:var(--violet-bg);}
+.cell.hint-scope{background:var(--amber-bg);}
+.cell.hint-elim{background:rgba(255,111,107,.13);}
+.cell.hint-target{background:rgba(255,180,77,.30);}
+.cell.wrong{color:var(--danger);}
+.cell.wrong::after{
+  content:'';position:absolute;inset:0;background:var(--danger-bg);pointer-events:none;
+}
+.cell.conflict::before{
+  content:'';position:absolute;inset:3px;border:1px solid var(--danger);border-radius:3px;pointer-events:none;
+}
+.cell.sel{background:rgba(84,199,240,.22);box-shadow:inset 0 0 0 2px var(--entry);z-index:3;}
+.cell.done{color:var(--mint);}
+
+.board-wrap{position:relative;}
+.pause-veil{
+  position:absolute;inset:0;border-radius:6px;z-index:8;
+  background:rgba(16,20,28,.93);backdrop-filter:blur(3px);
+  display:none;align-items:center;justify-content:center;flex-direction:column;gap:10px;
+  cursor:pointer;
+}
+.board-wrap.paused .pause-veil{display:flex;}
+.pause-veil .big{font-family:var(--serif);font-size:2rem;color:var(--amber);}
+.pause-veil .sub{font-family:var(--mono);font-size:.7rem;color:var(--text-dim);}
+
+/* mini example boards in the technique library */
+.exwrap{margin-top:14px;}
+.tipbox{
+  margin-top:10px;padding:10px 12px;border-left:2px solid var(--amber);
+  background:rgba(255,180,77,.07);border-radius:0 4px 4px 0;
+}
+.tiplbl{display:block;font-family:var(--mono);font-size:.6rem;color:var(--amber);margin-bottom:4px;}
+.tipbox p{margin:0;font-size:.85rem;line-height:1.6;color:var(--text);}
+.extabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;}
+.extab{
+  font-family:var(--mono);font-size:.62rem;padding:4px 9px;border-radius:20px;
+  border:1px solid var(--edge);background:transparent;color:var(--text-dim);cursor:pointer;
+}
+
+.extab.on{border-color:var(--amber);color:var(--amber);background:rgba(255,180,77,.12);}
+.exnote{font-family:var(--mono);font-size:.6rem;color:var(--text-dim);margin:-4px 0 8px;}
+.exlabel{font-family:var(--mono);font-size:.62rem;color:var(--amber);margin-bottom:6px;}
+.mini{
+  display:grid;grid-template-columns:repeat(9,1fr);width:100%;max-width:360px;
+  aspect-ratio:1;border:2px solid var(--rule);border-radius:4px;overflow:hidden;
+  background:var(--edge);gap:1px;margin-bottom:10px;
+}
+.mcell{
+  background:var(--cell);display:flex;align-items:center;justify-content:center;
+  font-family:var(--mono);font-size:clamp(.55rem,1.5vw,.78rem);color:var(--given);
+  position:relative;
+}
+.mcell.br{border-right:2px solid var(--rule);}
+.mcell.bb{border-bottom:2px solid var(--rule);}
+.mcell.scope{background:var(--amber-bg);}
+.mcell.elim{background:rgba(255,111,107,.13);}
+.mcell.target{background:rgba(255,180,77,.30);}
+.mpencil{display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(3,1fr);
+  width:100%;height:100%;padding:1px;}
+.mpencil span{font-family:var(--mono);font-size:clamp(.32rem,.85vw,.44rem);
+  color:var(--pencil);display:flex;align-items:center;justify-content:center;line-height:1;}
+.mpencil span.key{color:var(--amber);font-weight:600;}
+.mpencil span.cut{color:var(--danger);font-weight:600;text-decoration:line-through;}
+.mpencil span.place{color:var(--mint);font-weight:600;background:var(--mint-bg);border-radius:2px;}
+.mcell.place{background:rgba(72,217,160,.22);}
+.excap{font-size:.82rem;line-height:1.55;color:var(--text-dim);}
+.excap .cellref{color:var(--amber);}
+.exkey{display:flex;gap:12px;flex-wrap:wrap;font-family:var(--mono);font-size:.58rem;
+  color:var(--text-dim);margin:-4px 0 10px;}
+.exkey i{font-style:normal;display:inline-flex;align-items:center;gap:4px;}
+.exkey b{width:9px;height:9px;border-radius:2px;display:inline-block;}
+
+.pencil{display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(3,1fr);
+  width:100%;height:100%;padding:2px;pointer-events:none;}
+.pencil span{
+  font-family:var(--mono);font-size:clamp(.42rem,1.35vw,.6rem);font-weight:500;
+  color:var(--pencil);display:flex;align-items:center;justify-content:center;line-height:1;
+}
+.pencil span.on{color:var(--pencil-on);}
+.pencil span.match{color:var(--violet);font-weight:600;background:var(--violet-bg);border-radius:2px;}
+.pencil span.dead{color:var(--danger);text-decoration:line-through;opacity:.75;}
+.pencil span.hint{color:var(--amber);font-weight:600;background:rgba(255,180,77,.22);border-radius:2px;}
+.pencil span.hintcut{color:var(--danger);font-weight:600;text-decoration:line-through;}
+
+/* ---------- controls ---------- */
+.strip{display:flex;align-items:center;gap:8px;margin-top:14px;flex-wrap:wrap;}
+.striplbl{font-family:var(--mono);font-size:.66rem;color:var(--text-dim);min-width:52px;}
+.pad{display:grid;grid-template-columns:repeat(9,1fr);gap:5px;flex:1 1 100%;}
+.pad button{
+  font-family:var(--mono);font-size:1rem;font-weight:500;padding:10px 0;
+  border-radius:7px;border:1px solid var(--edge);background:var(--surface-2);
+  color:var(--text);cursor:pointer;position:relative;
+}
+
+.pad button.hl{border-color:var(--violet);color:var(--violet);background:var(--violet-bg);}
+.pad button .rem{
+  position:absolute;bottom:2px;right:4px;font-size:.5rem;color:var(--text-dim);font-weight:400;
+}
+.pad button.full{opacity:.35;}
+.pad.notes button{font-size:.82rem;color:var(--pencil-on);padding:8px 0;}
+.pad.notes button.hl{color:var(--violet);}
+
+.toolrow{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:14px;
+  padding-top:14px;border-top:1px solid var(--edge);}
+.stat{font-family:var(--mono);font-size:.7rem;color:var(--text-dim);margin-left:auto;text-align:right;}
+.stat b{color:var(--text);font-weight:500;}
+
+/* ---------- hint panel ---------- */
+.hint-head{display:flex;align-items:center;gap:10px;margin-bottom:12px;}
+.hint-head h2{font-family:var(--serif);font-weight:400;font-size:1.5rem;margin:0;color:#EEF3FA;}
+.pill{
+  font-family:var(--mono);font-size:.62rem;padding:3px 9px;border-radius:20px;
+  border:1px solid var(--amber);color:var(--amber);
+}
+.pill.v{border-color:var(--violet);color:var(--violet);}
+.pill.d{border-color:var(--danger);color:var(--danger);}
+.pill.m{border-color:var(--mint);color:var(--mint);}
+.hint-body{font-size:.95rem;line-height:1.65;color:var(--text);}
+.hint-body p{margin:0 0 12px;}
+.hint-body .muted{color:var(--text-dim);}
+.cellref{font-family:var(--mono);font-size:.85em;color:var(--amber);}
+.hint-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px;}
+.tierline{font-family:var(--mono);font-size:.66rem;color:var(--text-dim);margin-top:10px;}
+.bar{height:4px;background:var(--surface-3);border-radius:3px;overflow:hidden;margin-top:12px;}
+.bar i{display:block;height:100%;background:linear-gradient(90deg,var(--entry),var(--mint));transition:width .3s;}
+
+/* ---------- library ---------- */
+.lib h2{font-family:var(--serif);font-weight:400;font-size:1.45rem;margin:0 0 3px;color:#EEF3FA;}
+.lib > p{color:var(--text-dim);font-size:.85rem;margin:0 0 14px;}
+.tier{font-family:var(--mono);font-size:.64rem;color:var(--amber);
+  margin:16px 0 6px;padding-bottom:5px;border-bottom:1px solid var(--edge);}
+.tech{border-bottom:1px solid rgba(44,56,73,.6);}
+.tech button{
+  width:100%;text-align:left;background:none;border:none;cursor:pointer;
+  padding:9px 2px;display:flex;justify-content:space-between;align-items:center;gap:10px;
+  font-family:var(--sans);font-size:.9rem;color:var(--text);
+}
+
+.tech .n{font-family:var(--mono);font-size:.62rem;color:var(--text-dim);}
+.tech .body{display:none;padding:0 2px 12px;color:var(--text-dim);font-size:.86rem;line-height:1.6;}
+.tech.open .body{display:block;}
+.tech.open > button{color:var(--amber);}
+.tech.used > button::before{content:'●';color:var(--mint);font-size:.55rem;margin-right:7px;}
+
+@media (hover:hover) and (pointer:fine){
+  .btn:hover:not(:disabled){background:var(--surface-3);border-color:var(--rule);}
+  .btn.primary:hover:not(:disabled){background:#7AD6F5;border-color:#7AD6F5;}
+  .btn.amber:hover:not(:disabled){background:#FFC673;border-color:#FFC673;}
+  .pad button:hover{border-color:var(--rule);background:var(--surface-3);}
+  .tech button:hover{color:var(--entry);}
+  .extab:hover{border-color:var(--rule);color:var(--text);}
+}
+
+kbd{font-family:var(--mono);font-size:.72rem;background:var(--surface-3);border:1px solid var(--edge);
+  border-bottom-width:2px;border-radius:4px;padding:1px 5px;color:var(--text);}
+.keys{font-size:.8rem;color:var(--text-dim);line-height:2.1;}
+
+/* ---------- phones ---------- */
+@media (max-width:700px){
+  body{
+    font-size:16px;
+    padding:calc(12px + env(safe-area-inset-top)) calc(10px + env(safe-area-inset-right))
+            calc(20px + env(safe-area-inset-bottom)) calc(10px + env(safe-area-inset-left));
+  }
+  header{margin-bottom:14px;gap:6px;}
+  header h1{font-size:1.9rem;}
+  header .tag{border-left:none;padding-left:0;font-size:.66rem;}
+
+  .card{padding:12px;border-radius:10px;}
+  .sourcebar{padding:12px;margin-bottom:14px;}
+  .main{gap:16px;}
+
+  /* every control becomes a real touch target */
+  .btn{font-size:.86rem;padding:11px 14px;}
+  .btn.tiny{font-size:.8rem;padding:10px 12px;min-height:42px;}
+  .sourcebar .btn.tiny{flex:1 1 auto;min-width:72px;text-align:center;}
+
+  /* 16px stops iOS zooming the page when the field is focused */
+  input[type=text]{font-size:16px;padding:11px 12px;width:100%;}
+  .tokenrow{padding-top:10px;}
+  .tokenrow input{flex:1 1 100%;}
+  .tokenrow .btn.tiny{flex:1 1 0;}
+
+  /* both pads stay visible; five across keeps the keys thumb-sized */
+  .padblock{
+    position:sticky;bottom:0;z-index:6;
+    background:var(--surface);
+    padding:8px 0 calc(4px + env(safe-area-inset-bottom));
+    margin:0 -2px;
+  }
+  .strip{margin-top:8px;}
+  .striplbl{min-width:auto;font-size:.62rem;}
+  /* nine across a phone gives 33px-wide keys; five across nearly doubles that */
+  .pad{gap:6px;grid-template-columns:repeat(5,1fr);}
+  .pad button{font-size:1.3rem;padding:0;height:46px;border-radius:9px;}
+  .pad.notes button{font-size:1rem;height:42px;}
+  .strip{align-items:flex-start;margin-top:6px;}
+  .striplbl{padding-top:14px;min-width:34px;font-size:.58rem;}
+  /* the pencil toggle only affects typing, so it has no job on a touch screen */
+  #pencilBtn{display:none;}
+  .pad button .rem{font-size:.55rem;bottom:3px;right:5px;}
+  .pad.pencil-on button{color:var(--amber);border-color:rgba(255,180,77,.45);background:rgba(255,180,77,.08);}
+
+  .toolrow{gap:6px;padding-top:12px;margin-top:10px;}
+  .toolrow .btn.tiny{flex:1 1 30%;}
+  .stat{flex:1 1 100%;text-align:left;margin-left:0;padding-top:4px;}
+
+  /* small type that was unreadable at arm's length */
+  .cell{font-size:1.35rem;}
+  .pencil span{font-size:.56rem;}
+  .pencil{padding:3px;}
+
+  .hint-head h2{font-size:1.35rem;}
+  .hint-body{font-size:1rem;}
+  .hint-actions .btn{flex:1 1 auto;}
+
+  .lib h2{font-size:1.25rem;}
+  .mini{max-width:100%;}
+  .mpencil span{font-size:.42rem;}
+  .mcell{font-size:.92rem;}
+  .excap{font-size:.92rem;}
+  .extab{font-size:.72rem;padding:8px 12px;}
+  .tech button{padding:14px 2px;font-size:1rem;}
+  .tipbox p{font-size:.94rem;}
+
+  .keys{font-size:.9rem;line-height:1.8;}
+  .pause-veil .big{font-size:1.6rem;}
+}
+
+/* keyboard help on pointer devices, touch help on phones */
+.touch-only{display:none;}
+@media (max-width:700px){
+  .desktop-only{display:none;}
+  .touch-only{display:block;}
+}
+
+/* very narrow phones */
+@media (max-width:380px){
+  .pad{gap:4px;}
+  .pad button{height:42px;font-size:1.15rem;}
+  .pad.notes button{height:38px;font-size:.95rem;}
+  .btn.tiny{padding:9px 10px;font-size:.76rem;}
+  header h1{font-size:1.65rem;}
+}
+
+/* short landscape screens: stop the sticky pad eating the board */
+@media (max-height:520px) and (orientation:landscape){
+  .padblock{position:static;}
+}
+
+footer{margin-top:34px;text-align:center;font-family:var(--mono);font-size:.66rem;color:var(--text-dim);}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <h1>Sudoku <em>Workbench</em></h1>
+  <span class="tag">solve it yourself — ask for the logic only when you want it</span>
+</header>
+
+<div class="sourcebar">
+  <span class="lbl">generate</span>
+  <button class="btn tiny gen" data-gen="1">Gentle</button>
+  <button class="btn tiny gen" data-gen="2">Steady</button>
+  <button class="btn tiny gen" data-gen="3">Tricky</button>
+  <button class="btn tiny gen" data-gen="4">Severe</button>
+  <span style="flex:1"></span>
+  <button class="btn tiny" id="editBtn">Enter my own</button>
+  <button class="btn tiny" id="restartBtn">Restart</button>
+  <div class="tokenrow">
+    <span class="lbl">puzzle code</span>
+    <input type="text" id="pasteInput" spellcheck="false" placeholder="81 characters, . for blank">
+    <button class="btn tiny" id="copyBtn">Copy</button>
+    <button class="btn tiny" id="loadBtn">Load</button>
+  </div>
+  <div class="msg" id="msg"></div>
+</div>
+
+<div class="main">
+  <div>
+    <div class="card">
+      <div class="board-wrap" id="boardWrap">
+        <div class="board" id="board"></div>
+        <div class="pause-veil" id="pauseVeil">
+          <span class="big">Paused</span>
+          <span class="sub">click to resume</span>
+        </div>
+      </div>
+
+      <div class="padblock" id="padBlock">
+        <div class="strip">
+          <span class="striplbl" id="padLabel">write</span>
+          <div class="pad" id="padDigits"></div>
+        </div>
+        <div class="strip" id="noteStrip">
+          <span class="striplbl">note</span>
+          <div class="pad notes" id="padNotes"></div>
+        </div>
+      </div>
+
+      <div class="toolrow">
+        <button class="btn tiny" id="pencilBtn">✎ Pencil off</button>
+        <button class="btn tiny" id="eraseBtn">Erase</button>
+        <button class="btn tiny" id="undoBtn">↶ Undo</button>
+        <button class="btn tiny" id="redoBtn">↷ Redo</button>
+        <button class="btn tiny" id="autoNotesBtn">Fill all notes</button>
+        <button class="btn tiny on" id="checkBtn">Mistake check on</button>
+        <button class="btn tiny on" id="peerBtn">Row/col/box on</button>
+        <button class="btn tiny" id="pauseBtn">⏸ Pause</button>
+        <div class="stat" id="stat"></div>
+      </div>
+      <div class="bar"><i id="progressBar" style="width:0%"></i></div>
+    </div>
+
+    <div class="card">
+      <div style="font-family:var(--mono);font-size:.66rem;color:var(--amber);margin-bottom:8px;" id="helpTitle">keyboard</div>
+      <div class="keys desktop-only">
+        <kbd>1</kbd>–<kbd>9</kbd> write digit &nbsp;·&nbsp;
+        <kbd>Ctrl</kbd>+<kbd>1</kbd>–<kbd>9</kbd> toggle note &nbsp;·&nbsp;
+        <kbd>Shift</kbd>+<kbd>1</kbd>–<kbd>9</kbd> toggle note<br>
+        <kbd>Ctrl</kbd>+<kbd>Z</kbd> undo &nbsp;·&nbsp;
+        <kbd>Ctrl</kbd>+<kbd>Y</kbd> redo &nbsp;·&nbsp;
+        <kbd>Space</kbd> pencil mode &nbsp;·&nbsp;
+        <kbd>⌫</kbd> erase<br>
+        <kbd>H</kbd> hint &nbsp;·&nbsp;
+        <kbd>P</kbd> pause &nbsp;·&nbsp;
+        <kbd>R</kbd> row/col/box &nbsp;·&nbsp;
+        <kbd>Esc</kbd> deselect &nbsp;·&nbsp;
+        arrows move<br>
+        <span style="color:var(--text-dim)">Shift-click or drag across cells to select several at once. Click a filled cell to light up that digit everywhere.</span>
+      </div>
+      <div class="keys touch-only">
+        Tap a cell, then tap a number on the <b>write</b> row to place it.<br>
+        Use the <b>note</b> row underneath to pencil in candidates — no mode switching.<br>
+        Drag across cells to select several at once, then tap a number to fill them all.<br>
+        <span style="color:var(--text-dim)">Tap a filled cell to light that digit up across the grid. Tap a number with nothing selected to do the same.</span>
+      </div>
+    </div>
+  </div>
+
+  <div>
+    <div class="card" id="hintCard">
+      <div class="hint-head">
+        <h2>Stuck?</h2>
+        <span class="pill" id="hintPill" style="display:none"></span>
+      </div>
+      <div class="hint-body" id="hintBody"></div>
+      <div class="hint-actions" id="hintActions"></div>
+    </div>
+
+    <div class="card lib">
+      <h2>Technique library</h2>
+      <p>Twenty strategies, easiest first — each with tips for spotting it and worked examples on part-solved grids. A dot marks the ones you've already met in this puzzle.</p>
+      <div id="libList"></div>
+    </div>
+  </div>
+</div>
+
+<footer>white = clue · blue = yours · violet = highlighted digit · amber = the hint · red = mistake</footer>
+</div>
+
+<script>
+/* ==========================================================
+   ENGINE
+   ========================================================== */
+const idx=(r,c)=>r*9+c;
+const rowOf=c=>Math.floor(c/9), colOf=c=>c%9;
+const boxOf=c=>Math.floor(rowOf(c)/3)*3+Math.floor(colOf(c)/3);
+
+function unitCells(type,i){
+  const out=[];
+  if(type==='row') for(let c=0;c<9;c++) out.push(idx(i,c));
+  if(type==='col') for(let r=0;r<9;r++) out.push(idx(r,i));
+  if(type==='box'){const br=Math.floor(i/3)*3,bc=(i%3)*3;
+    for(let r=br;r<br+3;r++) for(let c=bc;c<bc+3;c++) out.push(idx(r,c));}
+  return out;
+}
+const ALL_UNITS=[];
+for(const t of ['row','col','box']) for(let i=0;i<9;i++) ALL_UNITS.push({type:t,i,cells:unitCells(t,i)});
+const PEERS=[],PEERSET=[];
+for(let c=0;c<81;c++){
+  const s=new Set();
+  unitCells('row',rowOf(c)).forEach(x=>s.add(x));
+  unitCells('col',colOf(c)).forEach(x=>s.add(x));
+  unitCells('box',boxOf(c)).forEach(x=>s.add(x));
+  s.delete(c); PEERSET.push(s); PEERS.push([...s]);
+}
+const sees=(a,b)=>PEERSET[a].has(b);
+
+function computeCandidates(board){
+  const out=[];
+  for(let c=0;c<81;c++){
+    if(board[c]!==0){out.push(new Set());continue;}
+    const s=new Set([1,2,3,4,5,6,7,8,9]);
+    for(const p of PEERS[c]) if(board[p]!==0) s.delete(board[p]);
+    out.push(s);
+  }
+  return out;
+}
+const rc=c=>`R${rowOf(c)+1}C${colOf(c)+1}`;
+const rcList=cs=>cs.map(rc).join(', ');
+const unitName=u=>u.type==='row'?`row ${u.i+1}`:u.type==='col'?`column ${u.i+1}`:`box ${u.i+1}`;
+function combinations(arr,k){const res=[];(function h(s,co){
+  if(co.length===k){res.push([...co]);return;}
+  for(let i=s;i<arr.length;i++){co.push(arr[i]);h(i+1,co);co.pop();}})(0,[]);return res;}
+function commonPeers(cells){
+  let out=null;
+  for(const c of cells){const s=PEERSET[c];out=out===null?new Set(s):new Set([...out].filter(x=>s.has(x)));}
+  for(const c of cells) out.delete(c);
+  return [...out];
+}
+
+function findNakedSingle(b,cd){
+  for(let c=0;c<81;c++){
+    if(b[c]!==0) continue;
+    if(cd[c].size===1){const v=[...cd[c]][0];
+      return{key:'naked-single',title:'Naked Single',where:`${rc(c)}`,
+        nudge:`Look at <span class="cellref">${rc(c)}</span>. Count what's already in its row, column and box — only one digit is left over.`,
+        explanation:`<span class="cellref">${rc(c)}</span> has just one candidate remaining: <b>${v}</b>. Every other digit already appears in its row, column, or box, so nothing else can go there.`,
+        highlights:{[c]:'target'},marks:{[c]:[v]},placements:[{cell:c,value:v}],eliminations:[]};}
+  }
+  return null;
+}
+function findHiddenSingle(b,cd){
+  for(const u of ALL_UNITS) for(let v=1;v<=9;v++){
+    const spots=u.cells.filter(c=>b[c]===0&&cd[c].has(v));
+    if(spots.length===1){
+      const c=spots[0]; if(cd[c].size===1) continue;
+      const hl=Object.fromEntries(u.cells.map(x=>[x,x===c?'target':'scope']));
+      return{key:'hidden-single',title:'Hidden Single',where:unitName(u),
+        nudge:`Scan <b>${unitName(u)}</b> and ask where the digit <b>${v}</b> is still allowed to go.`,
+        explanation:`In ${unitName(u)}, the digit <b>${v}</b> fits in only one place: <span class="cellref">${rc(c)}</span>. Every other empty cell there is blocked from being ${v}. It doesn't matter that ${rc(c)} still shows other candidates — ${v} has nowhere else to live in this ${u.type}, so it must go here.`,
+        highlights:hl,marks:{[c]:[v]},placements:[{cell:c,value:v}],eliminations:[]};
+    }
+  }
+  return null;
+}
+function findPointing(b,cd){
+  for(let bx=0;bx<9;bx++){
+    const cells=unitCells('box',bx).filter(c=>b[c]===0);
+    for(let v=1;v<=9;v++){
+      const spots=cells.filter(c=>cd[c].has(v));
+      if(spots.length<2) continue;
+      const rows=new Set(spots.map(rowOf)),cols=new Set(spots.map(colOf));
+      if(rows.size===1){
+        const r=[...rows][0];
+        const rest=unitCells('row',r).filter(c=>boxOf(c)!==bx&&b[c]===0&&cd[c].has(v));
+        if(rest.length) return{key:'pointing',title:'Pointing Pair / Triple',where:`box ${bx+1}`,
+          nudge:`In <b>box ${bx+1}</b>, see where the digit <b>${v}</b> can still go. All of those cells sit in one row.`,
+          explanation:`Inside box ${bx+1}, candidate <b>${v}</b> survives only at ${rcList(spots)} — every one of them in row ${r+1}. Box ${bx+1} must contain a ${v} somewhere, and it can only be in that row, so the ${v} for row ${r+1} is already spoken for. It can be struck from the rest of row ${r+1}: ${rcList(rest)}.`,
+          highlights:Object.fromEntries([...spots.map(c=>[c,'target']),...rest.map(c=>[c,'elim'])]),
+          marks:Object.fromEntries([...spots,...rest].map(c=>[c,[v]])),
+          placements:[],eliminations:rest.map(c=>({cell:c,value:v}))};
+      }
+      if(cols.size===1){
+        const cc=[...cols][0];
+        const rest=unitCells('col',cc).filter(c=>boxOf(c)!==bx&&b[c]===0&&cd[c].has(v));
+        if(rest.length) return{key:'pointing',title:'Pointing Pair / Triple',where:`box ${bx+1}`,
+          nudge:`In <b>box ${bx+1}</b>, see where the digit <b>${v}</b> can still go. All of those cells sit in one column.`,
+          explanation:`Inside box ${bx+1}, candidate <b>${v}</b> survives only at ${rcList(spots)} — every one of them in column ${cc+1}. The box's ${v} must land in that column, so ${v} can be struck from the rest of column ${cc+1}: ${rcList(rest)}.`,
+          highlights:Object.fromEntries([...spots.map(c=>[c,'target']),...rest.map(c=>[c,'elim'])]),
+          marks:Object.fromEntries([...spots,...rest].map(c=>[c,[v]])),
+          placements:[],eliminations:rest.map(c=>({cell:c,value:v}))};
+      }
+    }
+  }
+  return null;
+}
+function findBoxLine(b,cd){
+  for(const type of ['row','col']) for(let i=0;i<9;i++){
+    const cells=unitCells(type,i).filter(c=>b[c]===0);
+    for(let v=1;v<=9;v++){
+      const spots=cells.filter(c=>cd[c].has(v));
+      if(spots.length<2) continue;
+      const boxes=new Set(spots.map(boxOf));
+      if(boxes.size!==1) continue;
+      const bx=[...boxes][0];
+      const rest=unitCells('box',bx).filter(c=>!cells.includes(c)&&b[c]===0&&cd[c].has(v));
+      if(!rest.length) continue;
+      const ln=type==='row'?`row ${i+1}`:`column ${i+1}`;
+      return{key:'box-line',title:'Box/Line Reduction',where:ln,
+        nudge:`In <b>${ln}</b>, find every place the digit <b>${v}</b> could still go. They're all crammed into one box.`,
+        explanation:`Along ${ln}, candidate <b>${v}</b> only appears at ${rcList(spots)} — all inside box ${bx+1}. That ${type} needs a ${v}, and it can only come from inside the box, which uses up the box's only ${v}. So ${v} goes from the rest of box ${bx+1}: ${rcList(rest)}.`,
+        highlights:Object.fromEntries([...spots.map(c=>[c,'target']),...rest.map(c=>[c,'elim'])]),
+        marks:Object.fromEntries([...spots,...rest].map(c=>[c,[v]])),
+        placements:[],eliminations:rest.map(c=>({cell:c,value:v}))};
+    }
+  }
+  return null;
+}
+const SUB={2:'Pair',3:'Triple',4:'Quad'};
+function findNakedSubset(b,cd,n){
+  for(const u of ALL_UNITS){
+    const em=u.cells.filter(c=>b[c]===0&&cd[c].size>=2&&cd[c].size<=n);
+    if(em.length<n) continue;
+    for(const combo of combinations(em,n)){
+      const un=new Set();combo.forEach(c=>cd[c].forEach(v=>un.add(v)));
+      if(un.size!==n) continue;
+      const others=u.cells.filter(c=>b[c]===0&&!combo.includes(c));
+      const el=[];
+      for(const c of others) for(const v of un) if(cd[c].has(v)) el.push({cell:c,value:v});
+      if(!el.length) continue;
+      const nums=[...un].sort((a,b2)=>a-b2);
+      return{key:`naked-${n}`,title:`Naked ${SUB[n]}`,where:unitName(u),
+        nudge:`In <b>${unitName(u)}</b>, look at ${rcList(combo)}. Between them they only offer ${n} different digits.`,
+        explanation:`In ${unitName(u)}, the cells ${rcList(combo)} draw from only {${nums.join(', ')}} — ${n} cells, ${n} digits. Those digits have to be distributed among exactly those cells, in some order, which uses every one of them up. None of {${nums.join(', ')}} can appear anywhere else in the ${u.type}.`,
+        highlights:Object.fromEntries([...combo.map(c=>[c,'target']),...el.map(e=>[e.cell,'elim'])]),
+        marks:Object.fromEntries([...combo.map(c=>[c,[...cd[c]]]),...el.map(e=>[e.cell,[e.value]])]),
+        placements:[],eliminations:el};
+    }
+  }
+  return null;
+}
+function findHiddenSubset(b,cd,n){
+  for(const u of ALL_UNITS){
+    const em=u.cells.filter(c=>b[c]===0);
+    const sp={};
+    for(let v=1;v<=9;v++){const s=em.filter(c=>cd[c].has(v));if(s.length>=2&&s.length<=n) sp[v]=s;}
+    const vals=Object.keys(sp).map(Number);
+    if(vals.length<n) continue;
+    for(const combo of combinations(vals,n)){
+      const cu=new Set();combo.forEach(v=>sp[v].forEach(c=>cu.add(c)));
+      if(cu.size!==n) continue;
+      const el=[];
+      for(const c of cu) for(const v of cd[c]) if(!combo.includes(v)) el.push({cell:c,value:v});
+      if(!el.length) continue;
+      const cells=[...cu];
+      return{key:`hidden-${n}`,title:`Hidden ${SUB[n]}`,where:unitName(u),
+        nudge:`In <b>${unitName(u)}</b>, track the digits {${combo.join(', ')}}. They're squeezed into only ${n} cells.`,
+        explanation:`In ${unitName(u)}, the digits {${combo.join(', ')}} can only be placed at ${rcList(cells)}. That's ${n} digits needing ${n} cells, so those cells are reserved entirely for them — every other candidate showing in ${rcList(cells)} is impossible and can be rubbed out.`,
+        highlights:Object.fromEntries(cells.map(c=>[c,'target'])),
+        marks:Object.fromEntries(cells.map(c=>[c,[...cd[c]].filter(v=>!combo.includes(v))])),
+        placements:[],eliminations:el};
+    }
+  }
+  return null;
+}
+const FISH={2:'X-Wing',3:'Swordfish',4:'Jellyfish'};
+function findFish(b,cd,n){
+  for(const bt of ['row','col']){
+    const ct=bt==='row'?'col':'row', pos=bt==='row'?colOf:rowOf;
+    for(let v=1;v<=9;v++){
+      const lines=[];
+      for(let i=0;i<9;i++){
+        const cs=unitCells(bt,i).filter(c=>b[c]===0&&cd[c].has(v));
+        if(cs.length>=2&&cs.length<=n) lines.push({i,cells:cs});
+      }
+      if(lines.length<n) continue;
+      for(const combo of combinations(lines,n)){
+        const cover=new Set();combo.forEach(l=>l.cells.forEach(c=>cover.add(pos(c))));
+        if(cover.size!==n) continue;
+        const base=[];combo.forEach(l=>l.cells.forEach(c=>base.push(c)));
+        const tg=[];
+        for(const p of cover) for(const c of unitCells(ct,p))
+          if(b[c]===0&&cd[c].has(v)&&!base.includes(c)) tg.push(c);
+        if(!tg.length) continue;
+        const bN=bt==='row'?'rows':'columns', cN=ct==='row'?'rows':'columns';
+        const lineIds=combo.map(l=>l.i+1).join(', ');
+        const covIds=[...cover].sort((a,b2)=>a-b2).map(p=>p+1).join(', ');
+        return{key:`fish-${n}`,title:FISH[n],where:`${bN} ${lineIds}`,
+          nudge:`Track digit <b>${v}</b> across <b>${bN} ${lineIds}</b>. Notice how few ${cN} its candidates occupy.`,
+          explanation:`Look at candidate <b>${v}</b> in ${bN} ${lineIds}. In all ${n} of those ${bN} it only appears in ${cN} ${covIds}. Each of those ${bN} needs one ${v}, and each must take a different ${ct==='col'?'column':'row'} — so between them they consume all ${n} of ${cN} ${covIds}. No other cell in those ${cN} can be ${v}: ${rcList(tg)}.`,
+          highlights:Object.fromEntries([...base.map(c=>[c,'target']),...tg.map(c=>[c,'elim'])]),
+          marks:Object.fromEntries([...base,...tg].map(c=>[c,[v]])),
+          placements:[],eliminations:tg.map(c=>({cell:c,value:v}))};
+      }
+    }
+  }
+  return null;
+}
+function findSkyscraper(b,cd){
+  for(const bt of ['row','col']){
+    const pos=bt==='row'?colOf:rowOf;
+    for(let v=1;v<=9;v++){
+      const lines=[];
+      for(let i=0;i<9;i++){
+        const cs=unitCells(bt,i).filter(c=>b[c]===0&&cd[c].has(v));
+        if(cs.length===2) lines.push({i,cells:cs});
+      }
+      for(let a=0;a<lines.length;a++) for(let z=a+1;z<lines.length;z++){
+        const A=lines[a].cells,B=lines[z].cells;
+        for(const ba of A) for(const bb of B){
+          if(pos(ba)!==pos(bb)) continue;
+          const ra=A.find(c=>c!==ba), rb=B.find(c=>c!==bb);
+          if(pos(ra)===pos(rb)) continue;
+          const tg=commonPeers([ra,rb]).filter(c=>b[c]===0&&cd[c].has(v)&&![...A,...B].includes(c));
+          if(!tg.length) continue;
+          const shared=bt==='row'?`column ${pos(ba)+1}`:`row ${pos(ba)+1}`;
+          return{key:'skyscraper',title:'Skyscraper',where:`${bt}s ${lines[a].i+1} & ${lines[z].i+1}`,
+            nudge:`Digit <b>${v}</b> has exactly two homes in ${bt} ${lines[a].i+1} and two in ${bt} ${lines[z].i+1}. See what they share.`,
+            explanation:`Candidate <b>${v}</b> has exactly two spots in ${bt} ${lines[a].i+1} and exactly two in ${bt} ${lines[z].i+1}. One end of each pair sits in ${shared}, which can hold only a single ${v} — so those two ends can't both be ${v}. Whichever one fails, its ${bt} still needs a ${v}, which forces the far end. So at least one of <span class="cellref">${rc(ra)}</span> and <span class="cellref">${rc(rb)}</span> is ${v}, and any cell seeing both of them is ruled out: ${rcList(tg)}.`,
+            highlights:Object.fromEntries([[ba,'scope'],[bb,'scope'],[ra,'target'],[rb,'target'],...tg.map(c=>[c,'elim'])]),
+            marks:Object.fromEntries([ba,bb,ra,rb,...tg].map(c=>[c,[v]])),
+            placements:[],eliminations:tg.map(c=>({cell:c,value:v}))};
+        }
+      }
+    }
+  }
+  return null;
+}
+function findXYWing(b,cd){
+  const bi=[];for(let c=0;c<81;c++) if(b[c]===0&&cd[c].size===2) bi.push(c);
+  for(const pv of bi){
+    const [X,Y]=[...cd[pv]];
+    for(const p1 of bi){
+      if(p1===pv||!sees(pv,p1)) continue;
+      for(const p2 of bi){
+        if(p2===pv||p2===p1||!sees(pv,p2)) continue;
+        for(const [a,b2] of [[X,Y],[Y,X]]){
+          if(!cd[p1].has(a)||cd[p1].has(b2)) continue;
+          if(!cd[p2].has(b2)||cd[p2].has(a)) continue;
+          const z1=[...cd[p1]].find(z=>z!==a), z2=[...cd[p2]].find(z=>z!==b2);
+          if(z1!==z2||z1===X||z1===Y) continue;
+          const Z=z1;
+          const tg=commonPeers([p1,p2]).filter(c=>c!==pv&&b[c]===0&&cd[c].has(Z));
+          if(!tg.length) continue;
+          return{key:'xy-wing',title:'XY-Wing',where:rc(pv),
+            nudge:`Start at <span class="cellref">${rc(pv)}</span> — it has two candidates. Follow what each one forces in the two cells it sees.`,
+            explanation:`<span class="cellref">${rc(pv)}</span> is {${a}, ${b2}}. It sees <span class="cellref">${rc(p1)}</span> = {${a}, ${Z}} and <span class="cellref">${rc(p2)}</span> = {${b2}, ${Z}}. Test both cases: if the pivot is ${a}, then ${rc(p1)} can't be ${a}, so it's ${Z}; if the pivot is ${b2}, then ${rc(p2)} is ${Z}. The pivot must be one or the other, so <b>at least one wing is ${Z}</b> no matter what. Any cell that sees both wings therefore can't be ${Z}: ${rcList(tg)}.`,
+            highlights:Object.fromEntries([[pv,'scope'],[p1,'target'],[p2,'target'],...tg.map(c=>[c,'elim'])]),
+            marks:Object.fromEntries([[pv,[a,b2]],[p1,[a,Z]],[p2,[b2,Z]],...tg.map(c=>[c,[Z]])]),
+            placements:[],eliminations:tg.map(c=>({cell:c,value:Z}))};
+        }
+      }
+    }
+  }
+  return null;
+}
+function findXYZWing(b,cd){
+  for(let pv=0;pv<81;pv++){
+    if(b[pv]!==0||cd[pv].size!==3) continue;
+    const trio=[...cd[pv]];
+    const wings=PEERS[pv].filter(c=>b[c]===0&&cd[c].size===2&&[...cd[c]].every(v=>trio.includes(v)));
+    for(const [w1,w2] of combinations(wings,2)){
+      if(new Set([...cd[w1],...cd[w2]]).size!==3) continue;
+      const sh=[...cd[w1]].filter(v=>cd[w2].has(v));
+      if(sh.length!==1) continue;
+      const Z=sh[0];
+      const tg=commonPeers([pv,w1,w2]).filter(c=>b[c]===0&&cd[c].has(Z));
+      if(!tg.length) continue;
+      return{key:'xyz-wing',title:'XYZ-Wing',where:rc(pv),
+        nudge:`<span class="cellref">${rc(pv)}</span> has three candidates and sees two cells whose candidates are drawn from the same three.`,
+        explanation:`<span class="cellref">${rc(pv)}</span> = {${trio.sort((a,b2)=>a-b2).join(', ')}}, and it sees <span class="cellref">${rc(w1)}</span> = {${[...cd[w1]].sort((a,b2)=>a-b2).join(', ')}} and <span class="cellref">${rc(w2)}</span> = {${[...cd[w2]].sort((a,b2)=>a-b2).join(', ')}}. All three share the digit <b>${Z}</b>. Run the cases: whichever value the pivot takes, one of these three cells is forced to be ${Z}. A cell that sees all three can never be ${Z}: ${rcList(tg)}.`,
+        highlights:Object.fromEntries([[pv,'target'],[w1,'target'],[w2,'target'],...tg.map(c=>[c,'elim'])]),
+        marks:Object.fromEntries([[pv,[Z]],[w1,[Z]],[w2,[Z]],...tg.map(c=>[c,[Z]])]),
+        placements:[],eliminations:tg.map(c=>({cell:c,value:Z}))};
+    }
+  }
+  return null;
+}
+function findWWing(b,cd){
+  const bi=[];for(let c=0;c<81;c++) if(b[c]===0&&cd[c].size===2) bi.push(c);
+  for(let i=0;i<bi.length;i++) for(let j=i+1;j<bi.length;j++){
+    const A=bi[i],B=bi[j];
+    if(sees(A,B)) continue;
+    const ca=[...cd[A]].sort((x,y)=>x-y), cb=[...cd[B]].sort((x,y)=>x-y);
+    if(ca[0]!==cb[0]||ca[1]!==cb[1]) continue;
+    const [p,q]=ca;
+    for(const [X,Y] of [[p,q],[q,p]]){
+      for(const u of ALL_UNITS){
+        const sp=u.cells.filter(c=>b[c]===0&&cd[c].has(X));
+        if(sp.length!==2) continue;
+        const [s1,s2]=sp;
+        if([s1,s2].includes(A)||[s1,s2].includes(B)) continue;
+        if(!((sees(s1,A)&&sees(s2,B))||(sees(s1,B)&&sees(s2,A)))) continue;
+        const tg=commonPeers([A,B]).filter(c=>b[c]===0&&cd[c].has(Y));
+        if(!tg.length) continue;
+        return{key:'w-wing',title:'W-Wing',where:`${rc(A)} & ${rc(B)}`,
+          nudge:`<span class="cellref">${rc(A)}</span> and <span class="cellref">${rc(B)}</span> hold the same two candidates. Look for a link on ${X} joining them.`,
+          explanation:`<span class="cellref">${rc(A)}</span> and <span class="cellref">${rc(B)}</span> both hold exactly {${p}, ${q}}, and they don't see each other. In ${unitName(u)}, digit <b>${X}</b> has only two possible cells, ${rcList(sp)} — one of them must be ${X}. Each of those cells sees one of our pair, so one of the pair is forbidden from being ${X} and must fall back on <b>${Y}</b>. At least one of ${rc(A)} / ${rc(B)} is ${Y}, so ${Y} goes from every cell seeing both: ${rcList(tg)}.`,
+          highlights:Object.fromEntries([[A,'target'],[B,'target'],[s1,'scope'],[s2,'scope'],...tg.map(c=>[c,'elim'])]),
+          marks:Object.fromEntries([[A,[p,q]],[B,[p,q]],[s1,[X]],[s2,[X]],...tg.map(c=>[c,[Y]])]),
+          placements:[],eliminations:tg.map(c=>({cell:c,value:Y}))};
+      }
+    }
+  }
+  return null;
+}
+function findColoring(b,cd){
+  for(let v=1;v<=9;v++){
+    const adj=new Map();
+    const link=(a,b2)=>{
+      if(!adj.has(a))adj.set(a,new Set()); if(!adj.has(b2))adj.set(b2,new Set());
+      adj.get(a).add(b2); adj.get(b2).add(a);
+    };
+    for(const u of ALL_UNITS){
+      const sp=u.cells.filter(c=>b[c]===0&&cd[c].has(v));
+      if(sp.length===2) link(sp[0],sp[1]);
+    }
+    const seen=new Set();
+    for(const start of adj.keys()){
+      if(seen.has(start)) continue;
+      const col=new Map([[start,0]]); const q=[start]; seen.add(start);
+      while(q.length){const cur=q.shift();
+        for(const nb of adj.get(cur)) if(!col.has(nb)){col.set(nb,1-col.get(cur));seen.add(nb);q.push(nb);}}
+      if(col.size<4) continue;
+      const g=[[],[]];
+      for(const [c,k] of col) g[k].push(c);
+      for(const k of [0,1]){
+        for(let a=0;a<g[k].length;a++) for(let z=a+1;z<g[k].length;z++){
+          if(!sees(g[k][a],g[k][z])) continue;
+          const el=g[k].filter(c=>cd[c].has(v)).map(c=>({cell:c,value:v}));
+          if(!el.length) continue;
+          return{key:'coloring-trap',title:'Simple Colouring — colour trap',where:`digit ${v}`,
+            nudge:`Chain digit <b>${v}</b> through the units where it has only two homes, alternating true/false as you go.`,
+            explanation:`Follow digit <b>${v}</b> through every unit where it has exactly two possible cells, colouring alternately. One colour is entirely correct and the other entirely wrong. But <span class="cellref">${rc(g[k][a])}</span> and <span class="cellref">${rc(g[k][z])}</span> ended up the <b>same colour while sharing a unit</b> — they'd both have to be ${v}, which is impossible. So that whole colour is false and ${v} can be removed from all of it: ${rcList(g[k])}.`,
+            highlights:Object.fromEntries([...g[k].map(c=>[c,'elim']),...g[1-k].map(c=>[c,'scope'])]),
+            marks:Object.fromEntries([...g[0],...g[1]].map(c=>[c,[v]])),
+            placements:[],eliminations:el};
+        }
+      }
+      const tg=[];
+      for(let c=0;c<81;c++){
+        if(b[c]!==0||!cd[c].has(v)||col.has(c)) continue;
+        if(g[0].some(x=>sees(c,x))&&g[1].some(x=>sees(c,x))) tg.push(c);
+      }
+      if(tg.length) return{key:'coloring-wrap',title:'Simple Colouring — seeing both colours',where:`digit ${v}`,
+        nudge:`Chain digit <b>${v}</b> through the units where it has only two homes, alternating colours, then look for cells that see both colours.`,
+        explanation:`Colouring digit <b>${v}</b>'s two-cell links alternately splits them into two sets, and exactly one set is the true set of ${v}s. ${rcList(tg)} ${tg.length===1?'sees':'each see'} a cell of <i>both</i> colours — so whichever colour turns out true, a ${v} is already staring at ${tg.length===1?'it':'them'}. ${v} can be removed there.`,
+        highlights:Object.fromEntries([...g[0].map(c=>[c,'target']),...g[1].map(c=>[c,'scope']),...tg.map(c=>[c,'elim'])]),
+        marks:Object.fromEntries([...g[0],...g[1],...tg].map(c=>[c,[v]])),
+        placements:[],eliminations:tg.map(c=>({cell:c,value:v}))};
+    }
+  }
+  return null;
+}
+function findUR(b,cd){
+  for(let r1=0;r1<9;r1++)for(let r2=r1+1;r2<9;r2++)
+  for(let c1=0;c1<9;c1++)for(let c2=c1+1;c2<9;c2++){
+    const corners=[idx(r1,c1),idx(r1,c2),idx(r2,c1),idx(r2,c2)];
+    if(corners.some(c=>b[c]!==0)) continue;
+    if(new Set(corners.map(boxOf)).size!==2) continue;
+    for(const ex of corners){
+      const rest=corners.filter(c=>c!==ex);
+      if(!rest.every(c=>cd[c].size===2)) continue;
+      const pat=[...cd[rest[0]]].sort((a,b2)=>a-b2);
+      if(!rest.every(c=>{const s=[...cd[c]].sort((a,b2)=>a-b2);return s[0]===pat[0]&&s[1]===pat[1];})) continue;
+      if(!pat.every(v=>cd[ex].has(v))||cd[ex].size<3) continue;
+      return{key:'unique-rectangle',title:'Unique Rectangle (Type 1)',where:rc(ex),
+        nudge:`${rcList(rest)} all show the same two candidates, and <span class="cellref">${rc(ex)}</span> completes a rectangle with them.`,
+        explanation:`${rcList(rest)} each hold exactly {${pat.join(', ')}}, and with <span class="cellref">${rc(ex)}</span> they form a rectangle sitting in just two boxes. Suppose ${rc(ex)} were also only {${pat.join(', ')}} — then ${pat[0]} and ${pat[1]} could be swapped diagonally around the rectangle and you'd have two valid grids. A properly-set puzzle has exactly one solution, so ${rc(ex)} must take one of its <i>other</i> candidates. ${pat.join(' and ')} come out.`,
+        highlights:Object.fromEntries([...rest.map(c=>[c,'scope']),[ex,'target']]),
+        marks:Object.fromEntries([...rest.map(c=>[c,pat]),[ex,pat]]),
+        placements:[],eliminations:pat.map(v=>({cell:ex,value:v}))};
+    }
+  }
+  return null;
+}
+function findBUG(b,cd){
+  let tri=null;
+  for(let c=0;c<81;c++){
+    if(b[c]!==0) continue;
+    const n=cd[c].size;
+    if(n===2) continue;
+    if(n===3&&tri===null){tri=c;continue;}
+    return null;
+  }
+  if(tri===null) return null;
+  for(const v of cd[tri]){
+    if(unitCells('row',rowOf(tri)).filter(c=>b[c]===0&&cd[c].has(v)).length===3){
+      return{key:'bug',title:'BUG + 1',where:rc(tri),
+        nudge:`Every unsolved cell now has exactly two candidates — except <span class="cellref">${rc(tri)}</span>, which has three.`,
+        explanation:`Every remaining cell is down to two candidates apart from <span class="cellref">${rc(tri)}</span>, which has three. If it had two as well, every digit would appear exactly twice in every unit — and a grid like that always has two solutions, swapping the pairs. Since a proper puzzle has one, the extra candidate must be the answer. It's the digit appearing three times in row ${rowOf(tri)+1}: <b>${v}</b>.`,
+        highlights:{[tri]:'target'},marks:{[tri]:[v]},
+        placements:[{cell:tri,value:v}],eliminations:[]};
+    }
+  }
+  return null;
+}
+
+const TECHS=[
+  b=>findNakedSingle(b[0],b[1]), b=>findHiddenSingle(b[0],b[1]),
+  b=>findPointing(b[0],b[1]), b=>findBoxLine(b[0],b[1]),
+  b=>findNakedSubset(b[0],b[1],2), b=>findHiddenSubset(b[0],b[1],2),
+  b=>findNakedSubset(b[0],b[1],3), b=>findHiddenSubset(b[0],b[1],3),
+  b=>findNakedSubset(b[0],b[1],4), b=>findHiddenSubset(b[0],b[1],4),
+  b=>findFish(b[0],b[1],2), b=>findSkyscraper(b[0],b[1]),
+  b=>findFish(b[0],b[1],3), b=>findXYWing(b[0],b[1]),
+  b=>findXYZWing(b[0],b[1]), b=>findWWing(b[0],b[1]),
+  b=>findColoring(b[0],b[1]), b=>findFish(b[0],b[1],4),
+  b=>findUR(b[0],b[1]), b=>findBUG(b[0],b[1]),
+];
+function nextStep(board,cands){
+  for(const fn of TECHS){const s=fn([board,cands]);if(s) return s;}
+  return null;
+}
+function applyToEngine(board,cands,step){
+  for(const p of step.placements){
+    board[p.cell]=p.value;cands[p.cell]=new Set();
+    for(const pe of PEERS[p.cell]) cands[pe].delete(p.value);
+  }
+  for(const e of step.eliminations) cands[e.cell].delete(e.value);
+}
+function backtrack(board,limit){
+  const b=board.slice();let n=0,first=null;
+  const ok=(r,c,v)=>{
+    for(let i=0;i<9;i++){if(b[r*9+i]===v)return false;if(b[i*9+c]===v)return false;}
+    const br=Math.floor(r/3)*3,bc=Math.floor(c/3)*3;
+    for(let dr=0;dr<3;dr++)for(let dc=0;dc<3;dc++)if(b[(br+dr)*9+bc+dc]===v)return false;
+    return true;};
+  (function go(){
+    if(limit&&n>=limit)return;
+    const p=b.indexOf(0);
+    if(p===-1){n++;if(!first)first=b.slice();return;}
+    const r=Math.floor(p/9),c=p%9;
+    for(let v=1;v<=9;v++) if(ok(r,c,v)){b[p]=v;go();b[p]=0;if(limit&&n>=limit)return;}
+  })();
+  return{n,first};
+}
+function conflictCells(vals){
+  const bad=new Set();
+  for(const u of ALL_UNITS){
+    const seen={};
+    for(const c of u.cells){const v=vals[c];if(!v)continue;
+      if(seen[v]!==undefined){bad.add(c);bad.add(seen[v]);}else seen[v]=c;}
+  }
+  return bad;
+}
+
+const EXAMPLES={
+  'naked-single':[
+    '4.7..5..85.97......3864.......19.2.6..6....53..1.8.479.7........83.62..7..2.....4',
+    '194258376358.7.2..726...584..75.....4...2.93.....4.....6.......5...34.6......21.3',
+    '....1...617...69...46...71...49.16..71..6359.6.9.8.2.129.1.846.461...3.9...6941.2',
+  ],
+  'hidden-single':[
+    '.3..84.7.74.356.....9.2..438.34.....9......8....6.84.7....6.1....724.3.64.6....2.',
+    '.3.1..4651784653.2546.2..7.62...18.9.....62...1.2.46..7..6......61.9....39...2..6',
+    '7..1592366..823.7...3764....7..46..8....1...73..597..2..763.....6.981753.3.47.689',
+  ],
+  'pointing':[
+    '6..87....3...5....7..36.985...5.3........6.3..394.7..2..71325.8...648...12.79546.',
+    '2735..1..51..632.....12..35......87....352........95..32.....8...4.87.....1....5.',
+    '52.97.6.4..4...29.8..2.4..73.748.92.9.8...4..462.39...245.9.761.8.14.35.1....584.',
+  ],
+  'box-line':[
+    '....6358.83..9..6..56.872....4859.2..8.674..5579321846..5.4.3.1..2......7....6.5.',
+    '.68.395.49.....6...1..6..9..96.....8..19.6....2.5..9.66.2.97...7594.2.63...6...79',
+    '35.1.98...6.823..5...6.53...4..3.658..5.8.734......219..2.184.........834....75..',
+  ],
+  'naked-2':[
+    '9......61861....433..1.6.984..267.151.7..34.66...14.7973..21..451...8.322...9.1.7',
+    '.......2...1.8.....3.....8.483651...519...634.6.43981514..6.3.932..47...95.31..4.',
+    '.....962.64...2.8.2...65.....86..2...2..51..6.6492.53...72149639.25.6.4.4.679..52',
+  ],
+  'hidden-2':[
+    '3..51.46.7....43.....3.....86.......5.7.9..81..9............9.89.1265734.2......6',
+    '.38.2...7..4..78....96....2..3.......86479.2..72..65.4..17.2.....586.4....7..4298',
+    '2.764....3...7..8.1........78.253..153...9..76.........7.18..54.1...5..6.654.....',
+  ],
+  'naked-3':[
+    '....74.1...1.52..3.25..8......4916......83..59..725..1.....9.....6.37.2.27..461..',
+    '.7.6.5148...174293...2.8675..5..7432.9..12.6.....538195....1.244..3.9..6..9.4....',
+    '..81.6.....7...261.16...85..91.4.62.67...1..8.2..6..13.8.6.5.72..278...676..1248.',
+  ],
+  'hidden-3':[
+    '78.59.41......2...3....8.......5.8.1538914..6261...5496...2..9.1...69..489.43.16.',
+    '..1.6.9.3524..3..83...2.7.429..3..6.6........715...........718..8.69.....56.8....',
+    '......365..45631...65.........9.......2....9...3.15842.....465..4...927.....719..',
+  ],
+  'naked-4':[
+    '....62.9.694....7......9.86......93892138746538.6..712...7.384...2...657.......2.',
+    '6..82714...4.9187...7534...4..956..1......4...36......7....5.8..6..79.5.9..38....',
+    '1..46.5.7..478...173..2.........76.5..7.3...2.4.2..7.....69..78.7.3..2966..87..5.',
+  ],
+  'hidden-4':[
+    '59.....1.31.5894..846217395.8.153..4.6.9.825...56.2..96.8...9.....8...4....7...8.',
+    '9....1..7617..3.484......1.1748396..3...1...9829..713.74...5...5..29...32..1...6.',
+    '..16..74.7.6.34....49.17356..87....497.1..86........7.467.2.....95.61427..247..8.',
+  ],
+  'fish-2':[
+    '.5.....82....2.59......53.1..42...3.369.7.245.7.......4965.......5.84..98....94..',
+    '962541783...9.356273...69146..4..23...9.6.....4......5.2...5.985....432.3.7.2..5.',
+    '..16..74.7.6.34....49.17356..87....497.1..86........7.467.2.....95.61427..247..8.',
+  ],
+  'skyscraper':[
+    '7..5.......59...27.8.7.2.5..5..29........3..2...1.8.9426389..4.5......3919.3.42..',
+    '6.5.2....1..56.....82...56.751836492.28.....646.2.1.8..746...3.2193..674.3674....',
+    '.35..971879.5.8..6.8637....9.8.35...57....8.964.987.2..5.4....2...89.6...6.7.....',
+  ],
+  'fish-3':[
+    '.4.3.1...1.87.6.23...2485..431672...6..983147987514236...8.93.55.6....8......5...',
+    '2687395149.....6...1..6..9..96.....8..19.6....2.5..9.66.2.97..17594.28631..6..279',
+    '43..18..6718456.....5...481..6.3.8..3.18.....89...5..4973541628...6.7.........7.5',
+  ],
+  'fish-4':[
+    '.7.6.5148.....4.9....2.8..5..5..743..9..1..6.....538195....1.244..3.9..6..9.4....',
+    '..641.37.9..83..6...3.6.4..23.574618...2967.376.3..9.....6.32973...4...66.7.2..3.',
+    '.....92353...58916.6.321478.5.63.8....3.8.....84.7.....3..97.24.....63..2..51..87',
+  ],
+  'xy-wing':[
+    '73...2......713564.149.8..2..72..4.3.81.35..73.2.7....17.32694.........6...59....',
+    '4.7..5..85.97.8.4..3864.......19.286..6...153..1.8.479.7........83.62..7..2.....4',
+    '......7.....1.7..88973.4..6.8....96..3948625...6.7938..43.....5.1......9.7....6.3',
+  ],
+  'xyz-wing':[
+    '...9135..1......93973...1..46.175.3.59.328........9..8.....78..8.6.9...17...51.2.',
+    '......7.2...1.74.8897324516.8....96..3948625...6.7938..43.....5.1......9.7....6.3',
+    '.9..587366....3....3826.9.....539..79..68.513.56721.94.453.6.....9..5....8.......',
+  ],
+  'w-wing':[
+    '9.1...6..4..5289717..916.343.98....787..9.41.2.4.5.8..142.89756..7...3.2......14.',
+    '8..526...57.38..2.32.79.8.69..2..4..43.1...8.7..94..6.1958..6426.741239.2..65....',
+    '849...7.3.734....6..53...4.35..4.2.74927..81571..253.4..75...3.5.4.8...19.12....8',
+  ],
+  'coloring-trap':[
+    '79....8..51..4.97.42.9..5..95.67.2..38..91...67..32...269...7.1135.29.8.847.653..',
+    '8519.6...723481....642.5.3..1.74..68.97.2.............4..6..9....9...41.17....32.',
+    '...23.....1....3.8.73......53.1..7.2....52.69.29.4..35.9..1.2.4..1.24.....5....7.',
+  ],
+  'unique-rectangle':[
+    '21.95468..6.32.......17.4....5719....29865...87.432..9....41......58..9.6..29..54',
+    '...7.8.56675.12.98.8.956..35.......1..72.356....1.58...6.5...8..5.6349177..821635',
+    '7..2.....19..4...84.2.5.76.8..4.1..29..82.4..324.9..5.5..3.....2.3.14...6...7..8.',
+  ],
+  'bug':[
+    '.7438129.9.8.2471332179..4..3.412..9849..7321215938674.831.94621..2439..4928..137',
+    '81.6.239.639..52.74.23.96..9634175825219384767482569313...617291967238..2....4163',
+    '.61548.727.862..4124.1..6.86924.178.5139874264872.6.19824365197...7128641768942..',
+  ],
+};
+
+// each library key -> the finder that produced its example, run on fresh candidates
+const FINDER={
+  'naked-single':(b,c)=>findNakedSingle(b,c),
+  'hidden-single':(b,c)=>findHiddenSingle(b,c),
+  'pointing':(b,c)=>findPointing(b,c),
+  'box-line':(b,c)=>findBoxLine(b,c),
+  'naked-2':(b,c)=>findNakedSubset(b,c,2),
+  'hidden-2':(b,c)=>findHiddenSubset(b,c,2),
+  'naked-3':(b,c)=>findNakedSubset(b,c,3),
+  'hidden-3':(b,c)=>findHiddenSubset(b,c,3),
+  'naked-4':(b,c)=>findNakedSubset(b,c,4),
+  'hidden-4':(b,c)=>findHiddenSubset(b,c,4),
+  'fish-2':(b,c)=>findFish(b,c,2),
+  'skyscraper':(b,c)=>findSkyscraper(b,c),
+  'fish-3':(b,c)=>findFish(b,c,3),
+  'fish-4':(b,c)=>findFish(b,c,4),
+  'xy-wing':(b,c)=>findXYWing(b,c),
+  'xyz-wing':(b,c)=>findXYZWing(b,c),
+  'w-wing':(b,c)=>findWWing(b,c),
+  'coloring-trap':(b,c)=>findColoring(b,c),
+  'unique-rectangle':(b,c)=>findUR(b,c),
+  'bug':(b,c)=>findBUG(b,c),
+};
+
+/* ==========================================================
+   LIBRARY DATA
+   ========================================================== */
+const LIBRARY=[
+  {tier:'Foundations',items:[
+    {k:'naked-single',t:'Naked Single',d:"A cell with only one candidate left. Everything else is blocked by its row, column and box, so the survivor is the answer. This is the workhorse — most digits in an easy grid fall to it.",tip:"Easiest right after you place a digit: check the cells that digit just ruled out. With pencil marks it's simply any cell down to one mark. Without them, scan the busiest rows, columns and boxes first — crowded units leave the fewest options."},
+    {k:'hidden-single',t:'Hidden Single',d:"Flip the question round: instead of asking what fits in a cell, ask where a digit can go in a row, column or box. If there's only one legal spot, place it — even if that cell still shows other candidates.",tip:"Work digit by digit, not cell by cell. Pick a number and sweep the three boxes in a band, ruling out rows and columns where it already sits. Boxes that are already half full give these up fastest. This is the most productive scan in easy and medium grids."},
+  ]},
+  {tier:'Intersections',items:[
+    {k:'pointing',t:'Pointing Pair / Triple',d:"Inside one box, a digit's remaining spots all lie in a single row or column. The box must contain that digit, so it has to be on that line — meaning it can be erased from the rest of the line outside the box.",tip:"Find a box where one digit has only two or three homes left, then ask whether they all share a row or a column. Half-filled boxes are the best hunting ground."},
+    {k:'box-line',t:'Box/Line Reduction',d:"The reverse view. Along one row or column, a digit's remaining spots all lie inside a single box. That line needs the digit, so the box's copy is committed to the line and can be erased from the rest of the box.",tip:"The mirror scan: take a row or column with few empty cells and ask whether a missing digit can only fit inside one box. Easiest to see when the empty cells cluster at one end."},
+  ]},
+  {tier:'Subsets',items:[
+    {k:'naked-2',t:'Naked Pair',d:"Two cells in a unit whose candidates are the same two digits. Those digits must fill those cells in some order, so they can't appear elsewhere in the unit.",tip:"Look for cells showing exactly two marks, then check whether two of them in the same unit show the same pair. Mentally sorting cells by mark count — twos first — makes this quick."},
+    {k:'hidden-2',t:'Hidden Pair',d:"Two digits that between them can only go in two cells of a unit. Those cells belong to those digits, so every other candidate in the two cells is wiped out — which often reveals a naked pair underneath.",tip:"Harder to see, because the cells still look busy. Count how many homes each digit has in the unit; if two digits share the same two homes, that's your pair. Worth trying in a unit with four to six empties when nothing else is moving."},
+    {k:'naked-3',t:'Naked Triple',d:"Three cells whose combined candidates total just three digits. No cell needs all three; {12}, {23}, {13} works exactly as well as three copies of {123}. Those digits vanish from the rest of the unit.",tip:"Don't hunt for three identical cells — that's rare. Look for three cells drawing from the same three digits, like {12}, {23}, {13}. Check units where several cells are down to two or three marks."},
+    {k:'hidden-3',t:'Hidden Triple',d:"Three digits confined between them to three cells, even if those cells carry other candidates too. Clear the extras out of the three cells.",tip:"Same counting as a hidden pair, one digit wider. Usually only worth the effort once the obvious moves are gone, in a unit with five or six empty cells."},
+    {k:'naked-4',t:'Naked Quad',d:"Same idea stretched to four cells sharing four digits. Rare, and usually easier to spot as a hidden pair among the five cells left over.",tip:"Rare, and rarely worth hunting directly. If a unit has exactly five empty cells, check the other five instead — a hidden single or pair often sits there and is far quicker to confirm."},
+    {k:'hidden-4',t:'Hidden Quad',d:"Four digits locked into four cells of a unit. Everything else in those four cells goes. Rarest of the subsets.",tip:"The rarest subset of all. If you think you've spotted one, look for a naked pair among the same cells first; the same position usually yields one, and it's much easier to verify."},
+  ]},
+  {tier:'Fish patterns',items:[
+    {k:'fish-2',t:'X-Wing',d:"A digit has exactly two spots in each of two rows, and those spots share the same two columns. The digit must take opposite corners of that rectangle, so it clears out of the rest of both columns. Works with rows and columns swapped.",tip:"Pick a digit and note every cell where it's still possible. Look for a row where it has exactly two homes, then a second row where its two homes fall in the same columns. Digits already placed six or seven times are the best candidates."},
+    {k:'skyscraper',t:'Skyscraper',d:"Two rows where a digit has exactly two spots each, sharing one column. That shared column can hold only one copy, which forces one of the two far ends to be the digit. Anything seeing both far ends is eliminated.",tip:"Look for two rows where a digit has exactly two homes, with one home from each pair sharing a column. Easier to catch than an X-Wing, because only the base has to line up — the far ends can be anywhere."},
+    {k:'fish-3',t:'Swordfish',d:"An X-Wing widened to three rows and three columns. Each row needs the digit in a different column, and there are only three columns to go round — so the digit clears from those columns everywhere else.",tip:"Only worth hunting after X-Wings come up empty. Pick a digit, jot down which columns it can take in each row, then look for three rows covering just three columns between them."},
+    {k:'fish-4',t:'Jellyfish',d:"The four-row, four-column version. Logically identical to X-Wing and Swordfish, just larger and much harder to see by eye.",tip:"Very hard to see by eye and seldom necessary — most grids containing one also yield to something simpler. If you're this deep, sweep again for wings and colouring first."},
+  ]},
+  {tier:'Wings & chains',items:[
+    {k:'xy-wing',t:'XY-Wing',d:"A pivot cell {X,Y} sees two cells {X,Z} and {Y,Z}. Whichever value the pivot takes, one of the wings is forced to Z — so no cell seeing both wings can be Z.",tip:"Hunt among two-mark cells. Take one as the pivot, then look at the two-mark cells it can see: you want two that each share one digit with the pivot and one with each other. Three cells, three digits, in a bent chain."},
+    {k:'xyz-wing',t:'XYZ-Wing',d:"Like an XY-Wing but the pivot carries Z as well: {X,Y,Z} with wings {X,Z} and {Y,Z}. Now all three can be Z, so eliminations only apply to cells seeing all three.",tip:"Same hunt, but start from a three-mark cell. Both wings must draw only from the pivot's three digits. The catch is that eliminations apply only to cells seeing all three, so the net is much tighter."},
+    {k:'w-wing',t:'W-Wing',d:"Two cells with identical candidates {X,Y} that don't see each other, joined by a unit where X has only two possible cells — one seeing each. That forces one of the pair to be Y, clearing Y from anything seeing both.",tip:"Look for two cells far apart, not seeing each other, showing exactly the same two marks. Then check whether one of those digits has a two-cell link in some unit that bridges them."},
+    {k:'coloring-trap',t:'Simple Colouring',d:"Chain one digit through every unit where it has exactly two possible cells, colouring alternately. One colour is entirely right. If two same-coloured cells share a unit, that colour is dead; and any cell seeing both colours loses the digit.",tip:"Pick a digit that's nearly finished and mark every unit where it has exactly two homes. Chain those pairs, alternating colour as you go. If one colour ever lands twice in the same unit, that colour is dead."},
+  ]},
+  {tier:'Uniqueness',items:[
+    {k:'unique-rectangle',t:'Unique Rectangle',d:"Four cells in two rows, two columns and two boxes, three of which hold the same two candidates. If the fourth held only those two as well, the puzzle would have two solutions — so its extra candidate must be the answer. Only valid on properly-set puzzles.",tip:"Watch for the same pair of marks sitting in four cells that form a rectangle across just two boxes. Only valid on a properly set puzzle with one solution — never use it on a grid you typed in yourself and haven't checked."},
+    {k:'bug',t:'BUG + 1',d:"When every unsolved cell is down to two candidates except one with three, the two-candidate pattern would give two solutions. The odd digit out — the one appearing three times in its unit — has to be the answer.",tip:"You'll notice the position before the pattern: right near the end, every unsolved cell is down to two marks except a single cell with three. Then just count that digit's appearances in its row."},
+  ]},
+];
+
+
+
+/* ==========================================================
+   GENERATOR  (async so the page stays responsive)
+   ========================================================== */
+const tick=()=>new Promise(r=>setTimeout(r,0));
+function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
+function legal(b,r,c,v){
+  for(let i=0;i<9;i++){if(b[r*9+i]===v)return false;if(b[i*9+c]===v)return false;}
+  const br=Math.floor(r/3)*3,bc=Math.floor(c/3)*3;
+  for(let dr=0;dr<3;dr++)for(let dc=0;dc<3;dc++)if(b[(br+dr)*9+bc+dc]===v)return false;
+  return true;
+}
+function fullGrid(){
+  const b=new Array(81).fill(0);
+  (function fill(p){
+    if(p===81)return true;
+    const r=Math.floor(p/9),c=p%9;
+    for(const v of shuffle([1,2,3,4,5,6,7,8,9])) if(legal(b,r,c,v)){b[p]=v;if(fill(p+1))return true;b[p]=0;}
+    return false;
+  })(0);
+  return b;
+}
+function countSolutions(board,limit){
+  const b=board.slice();let n=0;
+  (function go(){
+    if(n>=limit)return;
+    const p=b.indexOf(0);
+    if(p===-1){n++;return;}
+    const r=Math.floor(p/9),c=p%9;
+    for(let v=1;v<=9;v++)if(legal(b,r,c,v)){b[p]=v;go();b[p]=0;if(n>=limit)return;}
+  })();
+  return n;
+}
+async function carveAsync(){
+  const puzzle=fullGrid();
+  let i=0;
+  for(const pos of shuffle([...Array(81).keys()])){
+    const keep=puzzle[pos];
+    puzzle[pos]=0;
+    if(countSolutions(puzzle,2)!==1) puzzle[pos]=keep;
+    if(++i%10===0) await tick();
+  }
+  return puzzle;
+}
+const RANK={
+  'naked-single':1,'hidden-single':1,
+  'pointing':2,'box-line':2,'naked-2':2,'hidden-2':2,
+  'naked-3':3,'hidden-3':3,'naked-4':3,'hidden-4':3,'fish-2':3,'skyscraper':3,
+  'fish-3':4,'fish-4':4,'xy-wing':4,'xyz-wing':4,'w-wing':4,
+  'coloring-trap':4,'coloring-wrap':4,'unique-rectangle':4,'bug':4,
+};
+function rate(puzzle){
+  const b=puzzle.slice(),c=computeCandidates(b);
+  let hardest=0;
+  for(let i=0;i<400;i++){
+    if(b.every(v=>v!==0))break;
+    const st=nextStep(b,c);
+    if(!st)return{tier:0,solved:false};
+    hardest=Math.max(hardest,RANK[st.key]||4);
+    applyToEngine(b,c,st);
+  }
+  return{tier:hardest,solved:b.every(v=>v!==0)};
+}
+// Add clues back until the puzzle rates exactly `want`.
+async function dial(puzzle,solution,want){
+  const p=puzzle.slice();
+  for(let guard=0;guard<60;guard++){
+    const r=rate(p);
+    if(r.solved&&r.tier===want) return p;
+    if(r.solved&&r.tier<want) return null;      // already easier than asked; can't climb back
+    const empties=[];for(let i=0;i<81;i++) if(p[i]===0) empties.push(i);
+    if(!empties.length) return null;
+    shuffle(empties);
+    let chosen=-1;
+    for(const cell of empties.slice(0,6)){
+      p[cell]=solution[cell];
+      const r2=rate(p);
+      p[cell]=0;
+      if(r2.solved&&r2.tier===want){chosen=cell;break;}
+      if((!r2.solved||r2.tier>want)&&chosen===-1) chosen=cell;
+    }
+    if(chosen===-1) chosen=empties[0];
+    p[chosen]=solution[chosen];
+    await tick();
+  }
+  return null;
+}
+const TIER_NAMES=['—','Gentle','Steady','Tricky','Severe'];
+// A dialled puzzle can end up clue-heavy, which looks wrong for a hard grid.
+// Accept a lean one straight away; otherwise keep the leanest seen and keep looking.
+const LEAN_ENOUGH=32;
+async function generatePuzzle(want,budgetMs=20000){
+  const t0=Date.now();
+  let best=null,fallback=null,rounds=0;
+  const clueCount=p=>p.filter(v=>v!==0).length;
+  const consider=p=>{ if(!best||clueCount(p)<clueCount(best)) best=p; };
+  while(Date.now()-t0<budgetMs){
+    rounds++;
+    $('msg').textContent=`Generating a ${TIER_NAMES[want].toLowerCase()} puzzle… (attempt ${rounds})`;
+    $('msg').classList.remove('ok');
+    await tick();
+    const puzzle=await carveAsync();
+    const sol=backtrack(puzzle,1).first;
+    const r=rate(puzzle);
+    if(r.solved&&r.tier===want){ consider(puzzle); return{puzzle,tier:want}; }
+    if(!fallback&&r.solved) fallback={puzzle,tier:r.tier};
+    if(!(r.solved&&r.tier<want)){
+      const d=await dial(puzzle,sol,want);
+      if(d){
+        consider(d);
+        if(clueCount(d)<=LEAN_ENOUGH) return{puzzle:d,tier:want};
+      }
+    }
+  }
+  if(best) return{puzzle:best,tier:want};
+  return fallback;
+}
+
+/* ==========================================================
+   STATE
+   ========================================================== */
+const S={
+  phase:'play',
+  givens:new Array(81).fill(0),
+  vals:new Array(81).fill(0),
+  notes:Array.from({length:81},()=>new Set()),
+  solution:null,
+  solverCands:null,
+  sel:new Set(),
+  cursor:null,
+  hlDigit:null,
+  pencil:false,
+  check:true,
+  peerHL:true,
+  hint:null,           // {step, stage:1|2}
+  hintMsg:null,
+  undo:[],redo:[],
+  metTech:new Set(),
+  elapsed:0, runSince:null, paused:false, generating:false, tier:2,
+};
+
+const $=id=>document.getElementById(id);
+function elapsedMs(){return S.elapsed+(S.runSince?Date.now()-S.runSince:0);}
+function clockText(){const t=Math.floor(elapsedMs()/1000);
+  return String(Math.floor(t/60)).padStart(2,'0')+':'+String(t%60).padStart(2,'0');}
+function resetClock(){S.elapsed=0;S.runSince=Date.now();S.paused=false;}
+function pauseClock(){if(S.runSince){S.elapsed+=Date.now()-S.runSince;S.runSince=null;}S.paused=true;}
+function resumeClock(){if(!S.runSince)S.runSince=Date.now();S.paused=false;}
+const boardEl=$('board'), msgEl=$('msg');
+
+function snapshot(){
+  return{vals:S.vals.slice(),notes:S.notes.map(s=>new Set(s)),
+    solverCands:S.solverCands?S.solverCands.map(s=>new Set(s)):null};
+}
+function pushUndo(){S.undo.push(snapshot());if(S.undo.length>200)S.undo.shift();S.redo.length=0;}
+function restore(sn){S.vals=sn.vals.slice();S.notes=sn.notes.map(s=>new Set(s));
+  S.solverCands=sn.solverCands?sn.solverCands.map(s=>new Set(s)):null;}
+
+/* ---------- puzzle loading ---------- */
+function loadPuzzle(str,label){
+  const clean=str.replace(/\s+/g,'');
+  if(clean.length!==81){say(`Need exactly 81 characters — that string has ${clean.length}.`);return false;}
+  const nums=[...clean].map(ch=>ch==='.'||ch==='0'?0:parseInt(ch,10));
+  if(nums.some(n=>isNaN(n))){say('That string contains something other than digits and dots.');return false;}
+  const conf=conflictCells(nums);
+  if(conf.size){say('That grid already breaks the rules — a digit repeats in a row, column or box.');return false;}
+  const {n,first}=backtrack(nums,2);
+  if(n===0){say('That grid has no solution.');return false;}
+  if(n>1){say('Heads up: this grid has more than one solution, so mistake-checking and uniqueness moves are switched off.');}
+  else say(label?`${label} loaded. Good luck.`:'Puzzle loaded.',true);
+
+  S.phase='play';
+  S.givens=nums.slice(); S.vals=nums.slice();
+  S.notes=Array.from({length:81},()=>new Set());
+  S.solution=n===1?first:null;
+  S.solverCands=computeCandidates(S.vals);
+  S.sel.clear(); S.cursor=null; S.hlDigit=null;
+  S.hint=null; S.hintMsg=null; S.undo=[]; S.redo=[];
+  S.metTech=new Set(); resetClock();
+  const token=nums.map(v=>v===0?'.':v).join('');
+  $('pasteInput').value=token;
+  S.tier=rate(nums).tier;
+  render();
+  return true;
+}
+function say(t,ok){msgEl.textContent=t;msgEl.classList.toggle('ok',!!ok);}
+
+/* ---------- board DOM ---------- */
+function buildBoard(){
+  boardEl.innerHTML='';
+  for(let r=0;r<9;r++)for(let c=0;c<9;c++){
+    const d=document.createElement('div');
+    d.className='cell'; d.dataset.index=idx(r,c);
+    if(c===2||c===5) d.classList.add('br');
+    if(r===2||r===5) d.classList.add('bb');
+    boardEl.appendChild(d);
+  }
+}
+
+/* ---------- selection ---------- */
+let dragging=false, dragAdd=true;
+boardEl.addEventListener('pointerdown',e=>{
+  const el=e.target.closest('.cell'); if(!el||S.paused||S.generating) return;
+  e.preventDefault();
+  const i=+el.dataset.index;
+  try{ boardEl.setPointerCapture&&boardEl.setPointerCapture(e.pointerId); }catch(_){}
+  dragging=true; dragAdd=true;
+  if(e.shiftKey||e.ctrlKey||e.metaKey){
+    if(S.sel.has(i)){S.sel.delete(i);dragAdd=false;} else S.sel.add(i);
+  }else{ S.sel.clear(); S.sel.add(i); }
+  S.cursor=i;
+  if(S.vals[i]!==0) S.hlDigit=S.vals[i];
+  else if(S.sel.size===1) S.hlDigit=null;
+  render();
+});
+boardEl.addEventListener('pointermove',e=>{
+  if(!dragging) return;
+  const el=document.elementFromPoint(e.clientX,e.clientY);
+  const cell=el&&el.closest?el.closest('.cell'):null;
+  if(!cell||!boardEl.contains(cell)) return;
+  const i=+cell.dataset.index;
+  if(dragAdd&&!S.sel.has(i)){S.sel.add(i);S.cursor=i;render();}
+  else if(!dragAdd&&S.sel.has(i)){S.sel.delete(i);render();}
+});
+document.addEventListener('pointerup',()=>{dragging=false;});
+document.addEventListener('pointercancel',()=>{dragging=false;});
+
+/* ---------- editing ---------- */
+function writeDigit(v){
+  const cells=[...S.sel].filter(c=>S.givens[c]===0);
+  if(!cells.length) return;
+  pushUndo();
+  const allSame=cells.every(c=>S.vals[c]===v);
+  for(const c of cells){
+    if(allSame){ S.vals[c]=0; }
+    else{ S.vals[c]=v; S.notes[c].clear();
+      for(const p of PEERS[c]) S.notes[p].delete(v); }
+  }
+  rebuildSolver();
+  S.hlDigit=allSame?S.hlDigit:v;
+  S.hint=null; S.hintMsg=null;
+  render();
+}
+function toggleNote(v){
+  const cells=[...S.sel].filter(c=>S.givens[c]===0&&S.vals[c]===0);
+  if(!cells.length) return;
+  pushUndo();
+  const allHave=cells.every(c=>S.notes[c].has(v));
+  for(const c of cells){ if(allHave) S.notes[c].delete(v); else S.notes[c].add(v); }
+  S.hlDigit=v;
+  render();
+}
+function eraseSel(){
+  const cells=[...S.sel].filter(c=>S.givens[c]===0);
+  if(!cells.length) return;
+  pushUndo();
+  for(const c of cells){S.vals[c]=0;S.notes[c].clear();}
+  rebuildSolver(); S.hint=null; S.hintMsg=null;
+  render();
+}
+function rebuildSolver(){ S.solverCands=computeCandidates(S.vals); }
+
+/* ---------- errors ---------- */
+function errorInfo(){
+  const conflicts=conflictCells(S.vals);
+  const wrong=new Set();
+  if(S.check&&S.solution){
+    for(let c=0;c<81;c++)
+      if(S.givens[c]===0&&S.vals[c]!==0&&S.vals[c]!==S.solution[c]) wrong.add(c);
+  }
+  return{conflicts,wrong};
+}
+
+/* ---------- hints ---------- */
+function requestHint(){
+  if(S.generating||!S.solverCands) return;   // no puzzle on the board yet
+  const {conflicts,wrong}=errorInfo();
+  if(conflicts.size||wrong.size){
+    const bad=[...new Set([...conflicts,...wrong])];
+    S.hint=null;
+    S.hintMsg={kind:'error',cells:bad,
+      text:`There ${bad.length===1?'is a digit':'are digits'} on the grid that can't be right, so any hint from here would be built on a broken grid. ${bad.length===1?'It\'s':'They\'re'} outlined in red — clear ${bad.length===1?'it':'them'} and ask again.`};
+    S.sel=new Set(bad);
+    render(); return;
+  }
+  if(S.vals.every(v=>v!==0)){ S.hint=null;S.hintMsg={kind:'done'};render();return; }
+
+  if(S.hint&&S.hint.stage===1){ S.hint.stage=2; render(); return; }
+
+  const board=S.vals.slice();
+  const cands=S.solverCands.map(s=>new Set(s));
+  const step=nextStep(board,cands);
+  if(!step){
+    S.hint=null;
+    S.hintMsg={kind:'exhausted'};
+    render(); return;
+  }
+  S.hint={step,stage:1};
+  S.hintMsg=null;
+  S.metTech.add(step.key);
+  S.sel.clear();
+  render();
+}
+function applyHint(){
+  if(!S.hint) return;
+  const st=S.hint.step;
+  pushUndo();
+  // An elimination is invisible if the cell has no pencil marks yet, so fill
+  // in the affected cells' candidates first — then the strike-out actually shows.
+  if(st.eliminations.length){
+    for(const e of st.eliminations)
+      if(S.vals[e.cell]===0&&S.notes[e.cell].size===0)
+        S.notes[e.cell]=new Set(S.solverCands[e.cell]);
+  }
+  for(const p of st.placements){
+    S.vals[p.cell]=p.value; S.notes[p.cell].clear();
+    for(const pe of PEERS[p.cell]) S.notes[pe].delete(p.value);
+  }
+  for(const e of st.eliminations) S.notes[e.cell].delete(e.value);
+  applyToEngine(S.vals,S.solverCands,st);
+  S.hint=null; S.hintMsg=null;
+  render();
+}
+
+/* ---------- rendering ---------- */
+function render(){
+  const {conflicts,wrong}=errorInfo();
+  const hintStep=S.hint?S.hint.step:null;
+  const showHintCells=hintStep&&S.hint.stage>=1;
+  const showHintDetail=hintStep&&S.hint.stage>=2;
+  const errCells=S.hintMsg&&S.hintMsg.kind==='error'?new Set(S.hintMsg.cells):new Set();
+
+  const cursorPeers=(S.peerHL&&S.sel.size===1&&S.cursor!==null)?PEERSET[S.cursor]:null;
+  const cursorBox=cursorPeers!==null?boxOf(S.cursor):-1;
+
+  for(let c=0;c<81;c++){
+    const el=boardEl.children[c];
+    el.className='cell'+((c%9===2||c%9===5)?' br':'')+((Math.floor(c/9)===2||Math.floor(c/9)===5)?' bb':'');
+    el.innerHTML='';
+    const v=S.vals[c];
+
+    if(cursorPeers&&cursorPeers.has(c)) el.classList.add(boxOf(c)===cursorBox?'peerbox':'peer');
+    if(showHintCells){
+      const role=hintStep.highlights[c];
+      if(role==='scope') el.classList.add('hint-scope');
+      if(role==='elim') el.classList.add('hint-elim');
+      if(role==='target') el.classList.add('hint-target');
+    }
+    if(v!==0){
+      el.textContent=v;
+      if(S.givens[c]!==0) el.classList.add('given');
+      if(S.hlDigit===v) el.classList.add('match');
+      if(wrong.has(c)) el.classList.add('wrong');
+      if(conflicts.has(c)) el.classList.add('conflict');
+    }else{
+      const src=S.notes[c];
+      const hintMarks=showHintCells&&hintStep.marks&&hintStep.marks[c]?hintStep.marks[c]:null;
+      const elimHere=showHintCells?new Set(hintStep.eliminations.filter(e=>e.cell===c).map(e=>e.value)):new Set();
+      if(src.size||hintMarks){
+        const g=document.createElement('div');g.className='pencil';
+        for(let n=1;n<=9;n++){
+          const sp=document.createElement('span');
+          const has=src.has(n);
+          sp.textContent=has?n:'';
+          if(has){
+            sp.classList.add('on');
+            if(S.hlDigit===n) sp.classList.add('match');
+            if(S.check&&PEERS[c].some(p=>S.vals[p]===n)) sp.classList.add('dead');
+            if(showHintDetail&&elimHere.has(n)) sp.classList.add('hintcut');
+            else if(showHintDetail&&hintMarks&&hintMarks.includes(n)) sp.classList.add('hint');
+          }else if(showHintDetail&&hintMarks&&hintMarks.includes(n)){
+            sp.textContent=n;
+            sp.classList.add(elimHere.has(n)?'hintcut':'hint');
+          }
+          g.appendChild(sp);
+        }
+        el.appendChild(g);
+      }
+    }
+    if(errCells.has(c)) el.classList.add('conflict');
+    if(S.sel.has(c)) el.classList.add('sel');
+  }
+
+  // pads
+  const counts={};for(let n=1;n<=9;n++)counts[n]=0;
+  for(const v of S.vals) if(v) counts[v]++;
+  [['padDigits',false],['padNotes',true]].forEach(([id,isNote])=>{
+    const pad=$(id);
+    [...pad.children].forEach((btn,i)=>{
+      const n=i+1;
+      btn.classList.toggle('hl',S.hlDigit===n);
+      btn.classList.toggle('full',!isNote&&counts[n]>=9);
+      if(!isNote){
+        let rem=btn.querySelector('.rem');
+        if(!rem){rem=document.createElement('span');rem.className='rem';btn.appendChild(rem);}
+        rem.textContent=9-counts[n]>0?9-counts[n]:'';
+      }
+    });
+  });
+
+  // stats
+  const filled=S.vals.filter(v=>v!==0).length;
+  const errs=conflicts.size||wrong.size?[...new Set([...conflicts,...wrong])].length:0;
+  $('stat').innerHTML=`<b>${filled}</b>/81 · ${clockText()}`+(S.paused?' · paused':'')+(errs?` · <span style="color:var(--danger)">${errs} wrong</span>`:'');
+  $('progressBar').style.width=(filled/81*100)+'%';
+  $('undoBtn').disabled=!S.undo.length;
+  $('redoBtn').disabled=!S.redo.length;
+  $('pencilBtn').textContent=S.pencil?'✎ Pencil on':'✎ Pencil off';
+  $('pencilBtn').classList.toggle('on',S.pencil);
+
+  $('checkBtn').textContent=S.check?'Mistake check on':'Mistake check off';
+  $('checkBtn').classList.toggle('on',S.check);
+  $('peerBtn').textContent=S.peerHL?'Row/col/box on':'Row/col/box off';
+  $('peerBtn').classList.toggle('on',S.peerHL);
+  $('pauseBtn').textContent=S.paused?'▶ Resume':'⏸ Pause';
+  $('pauseBtn').classList.toggle('on',S.paused);
+  $('boardWrap').classList.toggle('paused',S.paused);
+  $('autoNotesBtn').textContent='Fill all notes';
+
+  renderHint();
+  renderLibraryState();
+}
+
+function renderHint(){
+  const body=$('hintBody'),acts=$('hintActions'),pill=$('hintPill'),head=$('hintCard').querySelector('h2');
+  acts.innerHTML='';pill.style.display='none';
+  const add=(label,fn,cls)=>{const b=document.createElement('button');b.className='btn '+(cls||'');b.textContent=label;b.onclick=fn;acts.appendChild(b);};
+
+  if(S.vals.every(v=>v!==0)&&!conflictCells(S.vals).size){
+    if(S.runSince) pauseClock();
+    head.textContent='Finished';
+    pill.style.display='';pill.className='pill m';pill.textContent='complete';
+    const secs=Math.floor(elapsedMs()/1000);
+    body.innerHTML=`<p>Grid complete and consistent — nicely done. That took ${Math.floor(secs/60)}m ${secs%60}s.</p>
+      <p class="muted">${S.metTech.size?`Techniques you called on: ${[...S.metTech].map(k=>techName(k)).join(', ')}.`:'You did the whole thing without asking for a single hint.'}</p>`;
+    add('New puzzle',()=>makeAndLoad(S.tier||2),'primary');
+    return;
+  }
+  head.textContent='Stuck?';
+
+  if(S.generating||!S.solverCands){
+    pill.style.display='';pill.className='pill v';pill.textContent='building';
+    body.innerHTML='<p>Making a puzzle for you — this takes a moment for the harder settings, because each candidate grid has to be solved and rated before it can be offered.</p>';
+    return;
+  }
+
+  if(S.hintMsg){
+    if(S.hintMsg.kind==='error'){
+      pill.style.display='';pill.className='pill d';pill.textContent='mistake on the grid';
+      body.innerHTML=`<p>${S.hintMsg.text}</p>`;
+      add('Erase those cells',()=>{eraseSel();S.hintMsg=null;render();},'primary');
+      add('Leave them',()=>{S.hintMsg=null;render();});
+      return;
+    }
+    if(S.hintMsg.kind==='exhausted'){
+      pill.style.display='';pill.className='pill d';pill.textContent='beyond the library';
+      body.innerHTML=`<p>None of the twenty techniques finds a forced move from this position. That's the honest answer — this grid needs something heavier, like a forcing chain or a nishio.</p>
+        <p class="muted">You can uncover a single digit to break the deadlock and carry on solving by hand.</p>`;
+      add('Uncover one digit',revealOne,'amber');
+      add('Never mind',()=>{S.hintMsg=null;render();});
+      return;
+    }
+  }
+
+  if(!S.hint){
+    body.innerHTML=`<p>Work the grid however you like. When you run out of ideas, ask — you'll get a nudge toward the right region first, the full reasoning if you want it, and only then the move itself.</p>
+      <p class="muted">Nothing is filled in for you unless you ask for it.</p>`;
+    add('Where do I look?',requestHint,'amber');
+    return;
+  }
+
+  const st=S.hint.step;
+  pill.style.display='';pill.className='pill';pill.textContent=st.title;
+  if(S.hint.stage===1){
+    body.innerHTML=`<p>${st.nudge}</p><p class="muted">The region is shaded on the grid. See if you can finish the thought before reading on.</p>`;
+    add('Explain it',()=>{S.hint.stage=2;render();},'amber');
+    add('Hide the hint',()=>{S.hint=null;render();});
+  }else{
+    const kind=st.placements.length?'places a digit':'removes candidates';
+    body.innerHTML=`<p>${st.explanation}</p><p class="tierline">this step ${kind} · technique: ${st.title}</p>`;
+    add('Do it for me',applyHint,'primary');
+    add("I'll do it",()=>{S.hint=null;render();});
+    add('Read about this technique',()=>openTech(st.key));
+  }
+}
+function techName(k){
+  for(const g of LIBRARY) for(const it of g.items) if(it.k===k) return it.t;
+  return k;
+}
+function revealOne(){
+  if(!S.solution){say('Can\'t uncover a digit — this grid doesn\'t have a unique solution.');return;}
+  const empties=[];for(let c=0;c<81;c++) if(S.vals[c]===0) empties.push(c);
+  if(!empties.length) return;
+  // uncover the most constrained cell — the one most likely to restart the chain
+  const cell=empties.reduce((best,c)=>
+    S.solverCands[c].size < S.solverCands[best].size ? c : best, empties[0]);
+  pushUndo();
+  S.vals[cell]=S.solution[cell]; S.notes[cell].clear();
+  for(const p of PEERS[cell]) S.notes[p].delete(S.vals[cell]);
+  rebuildSolver();
+  S.sel=new Set([cell]); S.hlDigit=S.vals[cell];
+  S.hintMsg=null; S.hint=null;
+  render();
+}
+
+/* ---------- library ---------- */
+/* ---------- worked example boards in the library ---------- */
+// How this instance of the technique presents itself, used to label the tabs.
+function variantLabel(key,step){
+  const w=step.where||'', ex=step.explanation||'';
+  if(key==='pointing')
+    return /them in row/.test(ex)?'points along a row'
+         : /them in column/.test(ex)?'points along a column':'in a box';
+  if(/^rows /.test(w)) return 'across rows';
+  if(/^cols /.test(w)||/^columns /.test(w)) return 'across columns';
+  if(/^row /.test(w)) return 'in a row';
+  if(/^column /.test(w)) return 'in a column';
+  if(/^box /.test(w)) return 'in a box';
+  return null;
+}
+
+function drawExample(slot,key,str){
+  slot.innerHTML='';
+  const b=[...str].map(ch=>ch==='.'?0:parseInt(ch,10));
+  const cd=computeCandidates(b);
+  const st=FINDER[key](b,cd);
+  if(!st){slot.textContent='(example unavailable)';return;}
+
+  const elimAt={},placeAt={};
+  st.eliminations.forEach(e=>{(elimAt[e.cell]=elimAt[e.cell]||new Set()).add(e.value);});
+  st.placements.forEach(pl=>{placeAt[pl.cell]=pl.value;});
+
+  const note=document.createElement('div');
+  note.className='exnote';
+  note.textContent=`${b.filter(v=>v!==0).length} of 81 filled — a grid part-way through a solve`;
+
+  const grid=document.createElement('div');grid.className='mini';
+  for(let i=0;i<81;i++){
+    const cell=document.createElement('div');
+    cell.className='mcell'+((i%9===2||i%9===5)?' br':'')+((Math.floor(i/9)===2||Math.floor(i/9)===5)?' bb':'');
+    const role=st.highlights[i];
+    if(role) cell.classList.add(role);
+    if(placeAt[i]!==undefined) cell.classList.add('place');
+    if(b[i]!==0){
+      cell.textContent=b[i];
+    }else if(role||st.marks[i]){
+      const pw=document.createElement('div');pw.className='mpencil';
+      const keyMarks=st.marks[i]||[];
+      for(let n=1;n<=9;n++){
+        const sp=document.createElement('span');
+        if(cd[i].has(n)){
+          sp.textContent=n;
+          if(elimAt[i]&&elimAt[i].has(n)) sp.classList.add('cut');
+          else if(placeAt[i]===n) sp.classList.add('place');
+          else if(keyMarks.includes(n)) sp.classList.add('key');
+        }
+        pw.appendChild(sp);
+      }
+      cell.appendChild(pw);
+    }
+    grid.appendChild(cell);
+  }
+
+  const legend=document.createElement('div');
+  legend.className='exkey';
+  legend.innerHTML=
+    '<i><b style="background:rgba(255,180,77,.55)"></b>the pattern</i>'+
+    (st.eliminations.length?'<i><b style="background:rgba(255,111,107,.4)"></b>candidates it removes</i>':'')+
+    (st.placements.length?'<i><b style="background:rgba(72,217,160,.45)"></b>digit it places</i>':'')+
+    '<i>only the cells in the pattern show their pencil marks</i>';
+
+  const cap=document.createElement('div');
+  cap.className='excap';
+  cap.innerHTML=st.explanation;
+
+  slot.appendChild(note);slot.appendChild(grid);slot.appendChild(legend);slot.appendChild(cap);
+}
+
+function renderExample(host,key){
+  const list=EXAMPLES[key];
+  if(!list||!list.length||!FINDER[key]){host.remove();return;}
+
+  // work out a label for each example from the step it actually produces
+  const entries=[];
+  list.forEach((str,i)=>{
+    const b=[...str].map(ch=>ch==='.'?0:parseInt(ch,10));
+    const st=FINDER[key](b,computeCandidates(b));
+    if(st) entries.push({str,label:variantLabel(key,st)||`example ${i+1}`});
+  });
+  if(!entries.length){host.remove();return;}
+  // two examples can legitimately share a shape; number them so the tabs stay distinguishable
+  const seenLabel={};
+  entries.forEach(en=>{
+    const n=(seenLabel[en.label]=(seenLabel[en.label]||0)+1);
+    if(n>1) en.label+=` (${n})`;
+  });
+
+  const label=document.createElement('div');
+  label.className='exlabel';
+  label.textContent=entries.length>1?`worked examples (${entries.length})`:'worked example';
+  host.appendChild(label);
+
+  const slot=document.createElement('div');
+
+  if(entries.length>1){
+    const tabs=document.createElement('div');tabs.className='extabs';
+    entries.forEach((en,i)=>{
+      const t=document.createElement('button');
+      t.className='extab'+(i===0?' on':'');
+      t.textContent=en.label;
+      t.onclick=()=>{
+        [...tabs.children].forEach(x=>x.classList.remove('on'));
+        t.classList.add('on');
+        drawExample(slot,key,en.str);
+      };
+      tabs.appendChild(t);
+    });
+    host.appendChild(tabs);
+  }
+
+  host.appendChild(slot);
+  drawExample(slot,key,entries[0].str);
+}
+
+function buildLibrary(){
+  const wrap=$('libList');wrap.innerHTML='';
+  let n=0;
+  for(const g of LIBRARY){
+    const h=document.createElement('div');h.className='tier';h.textContent=g.tier;wrap.appendChild(h);
+    for(const it of g.items){
+      n++;
+      const d=document.createElement('div');d.className='tech';d.dataset.k=it.k;
+      const b=document.createElement('button');
+      b.innerHTML=`<span>${it.t}</span><span class="n">${String(n).padStart(2,'0')}</span>`;
+      const body=document.createElement('div');body.className='body';
+      const desc=document.createElement('div');desc.textContent=it.d;
+      body.appendChild(desc);
+      if(it.tip){
+        const tb=document.createElement('div');tb.className='tipbox';
+        const tl=document.createElement('span');tl.className='tiplbl';tl.textContent='spotting it';
+        const tp=document.createElement('p');tp.textContent=it.tip;
+        tb.appendChild(tl);tb.appendChild(tp);body.appendChild(tb);
+      }
+      const ex=document.createElement('div');ex.className='exwrap';
+      body.appendChild(ex);
+      b.onclick=()=>{
+        d.classList.toggle('open');
+        if(d.classList.contains('open')&&!ex.dataset.built){
+          ex.dataset.built='1';
+          renderExample(ex,it.k);
+        }
+      };
+      d.appendChild(b);d.appendChild(body);wrap.appendChild(d);
+    }
+  }
+}
+function renderLibraryState(){
+  document.querySelectorAll('.tech').forEach(d=>{
+    d.classList.toggle('used',S.metTech.has(d.dataset.k));
+  });
+}
+function openTech(k){
+  const map={'coloring-wrap':'coloring-trap'};
+  const key=map[k]||k;
+  const d=document.querySelector(`.tech[data-k="${key}"]`);
+  if(d){d.classList.add('open');d.scrollIntoView({behavior:'smooth',block:'center'});}
+}
+
+/* ---------- pads & buttons ---------- */
+function buildPads(){
+  [['padDigits',writeDigit],['padNotes',toggleNote]].forEach(([id,fn])=>{
+    const pad=$(id);pad.innerHTML='';
+    for(let n=1;n<=9;n++){
+      const b=document.createElement('button');
+      b.appendChild(document.createTextNode(n));
+      b.onclick=()=>{
+        if(!S.sel.size){ S.hlDigit=S.hlDigit===n?null:n; render(); return; }
+        fn(n);
+      };
+      pad.appendChild(b);
+    }
+  });
+}
+async function makeAndLoad(want){
+  if(S.generating) return;
+  S.generating=true;
+  document.querySelectorAll('.btn.gen').forEach(b=>b.disabled=true);
+  try{
+    const got=await generatePuzzle(want);
+    if(!got){say('Couldn\'t build one that fits in the time allowed — try again.');return;}
+    const str=got.puzzle.map(v=>v===0?'.':v).join('');
+    loadPuzzle(str, got.tier===want
+      ? `${TIER_NAMES[want]} puzzle ready`
+      : `Closest available was ${TIER_NAMES[got.tier]} — ${TIER_NAMES[want].toLowerCase()} was out of reach this time`);
+  } finally {
+    S.generating=false;
+    document.querySelectorAll('.btn.gen').forEach(b=>b.disabled=false);
+    render();
+  }
+}
+document.querySelectorAll('[data-gen]').forEach(b=>{
+  b.onclick=()=>makeAndLoad(+b.dataset.gen);
+});
+$('copyBtn').onclick=()=>{
+  const inp=$('pasteInput'); inp.select();
+  const done=()=>{const t=$('copyBtn');t.textContent='Copied';setTimeout(()=>t.textContent='Copy',1200);};
+  if(navigator.clipboard&&navigator.clipboard.writeText)
+    navigator.clipboard.writeText(inp.value).then(done,()=>{try{document.execCommand('copy');done();}catch(_){}});
+  else {try{document.execCommand('copy');done();}catch(_){}}
+};
+$('loadBtn').onclick=()=>{if(S.generating)return;const v=$('pasteInput').value.trim();if(v)loadPuzzle(v,'Your puzzle');};
+$('editBtn').onclick=()=>{
+  if(S.generating) return;
+  S.givens=new Array(81).fill(0);S.vals=new Array(81).fill(0);
+  S.notes=Array.from({length:81},()=>new Set());
+  S.solution=null;S.solverCands=computeCandidates(S.vals);
+  S.sel.clear();S.hint=null;S.hintMsg=null;S.undo=[];S.redo=[];S.metTech=new Set();
+  say('Blank grid — type your puzzle in, then press "Lock in clues".',true);
+  showLockButton();render();
+};
+function showLockButton(){
+  if($('lockBtn')) return;
+  const b=document.createElement('button');
+  b.className='btn tiny primary';b.id='lockBtn';b.textContent='Lock in clues';
+  b.onclick=()=>{
+    const str=S.vals.map(v=>v===0?'.':v).join('');
+    if(loadPuzzle(str,'Your puzzle')) b.remove();
+  };
+  $('editBtn').after(b);
+}
+$('restartBtn').onclick=()=>{
+  if(S.generating) return;
+  const str=S.givens.map(v=>v===0?'.':v).join('');
+  if(S.givens.some(v=>v!==0)) loadPuzzle(str,'Restarted');
+};
+$('pencilBtn').onclick=()=>{S.pencil=!S.pencil;render();};
+$('eraseBtn').onclick=()=>{if(!S.generating) eraseSel();};
+function doUndo(){
+  if(!S.undo.length)return;
+  S.redo.push(snapshot());restore(S.undo.pop());S.hint=null;S.hintMsg=null;render();
+}
+function doRedo(){
+  if(!S.redo.length)return;
+  S.undo.push(snapshot());restore(S.redo.pop());S.hint=null;S.hintMsg=null;render();
+}
+$('undoBtn').onclick=doUndo;
+$('redoBtn').onclick=doRedo;
+$('autoNotesBtn').onclick=()=>{
+  if(!S.solverCands||S.generating) return;
+  pushUndo();
+  for(let c=0;c<81;c++) S.notes[c]= S.vals[c]===0 ? new Set(S.solverCands[c]) : new Set();
+  say('Every legal candidate pencilled in — they\'re yours to edit from here.',true);
+  render();
+};
+$('checkBtn').onclick=()=>{S.check=!S.check;render();};
+$('peerBtn').onclick=()=>{S.peerHL=!S.peerHL;render();};
+function togglePause(){
+  if(S.vals.every(v=>v!==0)) return;          // nothing to pause once it's done
+  if(S.paused){resumeClock();}else{pauseClock();S.sel.clear();S.hint=null;S.hintMsg=null;}
+  render();
+}
+$('pauseBtn').onclick=togglePause;
+$('pauseVeil').onclick=togglePause;
+
+/* ---------- keyboard ---------- */
+document.addEventListener('keydown',e=>{
+  if(e.target.tagName==='INPUT') return;
+  const k=e.key;
+  if(S.generating) return;
+  if(k==='p'||k==='P'){togglePause();e.preventDefault();return;}
+  if(S.paused) return;
+  if((e.ctrlKey||e.metaKey)&&(k==='z'||k==='Z')){
+    e.preventDefault();
+    if(e.shiftKey) doRedo(); else doUndo();
+    return;
+  }
+  if((e.ctrlKey||e.metaKey)&&(k==='y'||k==='Y')){e.preventDefault();doRedo();return;}
+  if(k>='1'&&k<='9'){
+    const n=parseInt(k,10);
+    if(!S.sel.size){S.hlDigit=S.hlDigit===n?null:n;render();e.preventDefault();return;}
+    if(e.ctrlKey||e.metaKey||e.shiftKey||S.pencil) toggleNote(n); else writeDigit(n);
+    e.preventDefault();return;
+  }
+  if(k==='Backspace'||k==='Delete'||k==='0'){eraseSel();e.preventDefault();return;}
+  if(k===' '){S.pencil=!S.pencil;render();e.preventDefault();return;}
+  if(k==='h'||k==='H'){requestHint();e.preventDefault();return;}
+  if(k==='r'||k==='R'){S.peerHL=!S.peerHL;render();e.preventDefault();return;}
+  if(k==='Escape'){S.sel.clear();S.hlDigit=null;S.hint=null;S.hintMsg=null;render();return;}
+  const moves={ArrowUp:[-1,0],ArrowDown:[1,0],ArrowLeft:[0,-1],ArrowRight:[0,1]};
+  if(moves[k]){
+    e.preventDefault();
+    let base=S.cursor===null?0:S.cursor;
+    let r=rowOf(base)+moves[k][0], c=colOf(base)+moves[k][1];
+    r=Math.max(0,Math.min(8,r));c=Math.max(0,Math.min(8,c));
+    const i=idx(r,c);
+    if(e.shiftKey) S.sel.add(i); else {S.sel.clear();S.sel.add(i);}
+    S.cursor=i;
+    if(S.vals[i]!==0) S.hlDigit=S.vals[i];
+    render();
+  }
+});
+
+/* ---------- go ---------- */
+function updateClock(){
+  const filled=S.vals.filter(v=>v!==0).length;
+  const {conflicts,wrong}=errorInfo();
+  const errs=[...new Set([...conflicts,...wrong])].length;
+  $('stat').innerHTML=`<b>${filled}</b>/81 · ${clockText()}`+(S.paused?' · paused':'')+(errs?` · <span style="color:var(--danger)">${errs} wrong</span>`:'');
+}
+buildBoard();buildPads();buildLibrary();
+render();
+makeAndLoad(2);
+setInterval(()=>{ if(S.runSince&&!dragging&&S.vals.some(v=>v===0)) updateClock(); },250);
+</script>
+</body>
+</html>
