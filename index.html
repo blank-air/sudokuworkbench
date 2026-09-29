@@ -382,34 +382,6 @@ kbd{font-family:var(--mono);font-size:.72rem;background:var(--surface-3);border:
   .padblock{position:static;}
 }
 
-/* ---------- collaboration ---------- */
-.roomcard{margin-bottom:20px;}
-.roomhead{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
-.roomhead h2{font-family:var(--serif);font-weight:400;font-size:1.3rem;margin:0;color:#EEF3FA;}
-.dot{width:9px;height:9px;border-radius:50%;display:inline-block;background:var(--text-dim);}
-.dot.live{background:var(--mint);box-shadow:0 0 7px var(--mint);}
-.dot.err{background:var(--danger);}
-.roomrow{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:12px;}
-.roomcode{
-  font-family:var(--mono);font-size:1.15rem;letter-spacing:.22em;color:var(--amber);
-  background:rgba(255,180,77,.10);border:1px solid rgba(255,180,77,.35);
-  padding:7px 14px;border-radius:7px;
-}
-.roster{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;}
-.who{
-  display:flex;align-items:center;gap:7px;font-family:var(--mono);font-size:.72rem;
-  background:var(--surface-2);border:1px solid var(--edge);border-radius:20px;padding:5px 11px;
-}
-.who b{width:9px;height:9px;border-radius:50%;display:inline-block;}
-.who .at{color:var(--text-dim);}
-.roomnote{font-size:.85rem;color:var(--text-dim);line-height:1.6;margin:10px 0 0;}
-.roomnote code{font-family:var(--mono);font-size:.8rem;color:var(--amber);}
-.setupsteps{font-size:.85rem;color:var(--text-dim);line-height:1.75;margin:8px 0 0;padding-left:18px;}
-.setupsteps li{margin-bottom:3px;}
-.setupsteps b{color:var(--text);}
-.rmark{position:absolute;inset:2px;border:2px solid;border-radius:3px;pointer-events:none;z-index:4;}
-.rmark.second{inset:6px;}
-
 footer{margin-top:34px;text-align:center;font-family:var(--mono);font-size:.66rem;color:var(--text-dim);}
 </style>
 </head>
@@ -428,7 +400,6 @@ footer{margin-top:34px;text-align:center;font-family:var(--mono);font-size:.66re
   <button class="btn tiny gen" data-gen="3">Tricky</button>
   <button class="btn tiny gen" data-gen="4">Severe</button>
   <span style="flex:1"></span>
-  <button class="btn tiny" id="roomBtn">Play together</button>
   <button class="btn tiny" id="editBtn">Enter my own</button>
   <button class="btn tiny" id="restartBtn">Restart</button>
   <div class="tokenrow">
@@ -438,16 +409,6 @@ footer{margin-top:34px;text-align:center;font-family:var(--mono);font-size:.66re
     <button class="btn tiny" id="loadBtn">Load</button>
   </div>
   <div class="msg" id="msg"></div>
-</div>
-
-<div class="card roomcard" id="roomCard" style="display:none">
-  <div class="roomhead">
-    <span class="dot" id="roomDot"></span>
-    <h2>Play together</h2>
-    <span style="flex:1"></span>
-    <button class="btn tiny" id="roomClose">Close</button>
-  </div>
-  <div id="roomBody"></div>
 </div>
 
 <div class="main">
@@ -501,12 +462,13 @@ footer{margin-top:34px;text-align:center;font-family:var(--mono);font-size:.66re
         <kbd>R</kbd> row/col/box &nbsp;·&nbsp;
         <kbd>Esc</kbd> deselect &nbsp;·&nbsp;
         arrows move<br>
-        <span style="color:var(--text-dim)">Shift-click or drag across cells to select several at once. Click a filled cell to light up that digit everywhere.</span>
+        <span style="color:var(--text-dim)">Shift-click or drag across cells to select several at once — then a number keys in a
+        note across all of them, since one digit can't fill several cells at once. Click a filled cell to light that digit up everywhere.</span>
       </div>
       <div class="keys touch-only">
         Tap a cell, then tap a number on the <b>write</b> row to place it.<br>
         Use the <b>note</b> row underneath to pencil in candidates — no mode switching.<br>
-        Drag across cells to select several at once, then tap a number to fill them all.<br>
+        Drag across cells to select several at once — a number then pencils a note into every one of them.<br>
         <span style="color:var(--text-dim)">Tap a filled cell to light that digit up across the grid. Tap a number with nothing selected to do the same.</span>
       </div>
     </div>
@@ -1277,331 +1239,6 @@ async function generatePuzzle(want,budgetMs=20000){
 
 
 /* ==========================================================
-   COLLABORATION
-   Sudoku has 81 fixed slots that never shift, so concurrent edits
-   can't displace each other the way text edits do. A per-cell
-   last-write-wins on a Lamport clock is therefore exact, not a
-   shortcut — no CRDT needed.
-   ========================================================== */
-
-// ---- paste your Supabase project details here ----
-const SUPABASE_URL = "https://vnyilytfaexgiurmsrrn.supabase.co";       // e.g. https://abcdefgh.supabase.co
-const SUPABASE_ANON_KEY = "sb_publishable_cwoAljtgt54BDNQqOCEkRQ_zxeF6mZx";  // the "anon / public" key — safe to publish
-// --------------------------------------------------
-
-const PALETTE=['#54C7F0','#48D9A0','#FFB44D','#B693F7','#FF8A80','#9FD356'];
-const CODE_ALPHABET='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';   // no I/O/0/1
-const randCode=n=>Array.from({length:n},()=>CODE_ALPHABET[Math.floor(Math.random()*CODE_ALPHABET.length)]).join('');
-const NAMES=['Otter','Heron','Marten','Vixen','Kestrel','Badger','Lynx','Plover'];
-
-const room={
-  active:false, status:'idle', code:null, id:null, name:null,
-  transport:null, peers:{}, error:null,
-  clock:0,
-  cellTs:new Array(81).fill(0), cellBy:new Array(81).fill(null),
-  noteMeta:new Map(),
-  syncedVals:null, syncedNotes:null,
-  applying:false, awaitingState:false,
-};
-
-function roomConfigured(){ return !!(SUPABASE_URL && SUPABASE_ANON_KEY) || !!window.__transportFactory; }
-function peerColor(id){
-  const ids=Object.keys(room.peers).concat(room.id?[room.id]:[]);
-  const uniq=[...new Set(ids)].sort();
-  const i=uniq.indexOf(id);
-  return PALETTE[(i<0?0:i)%PALETTE.length];
-}
-function captureSynced(){
-  room.syncedVals=S.vals.slice();
-  room.syncedNotes=S.notes.map(x=>new Set(x));
-}
-
-/* ---------- transports ---------- */
-function supabaseTransport(url,key){
-  let client=null, channel=null, h=null;
-  return {
-    async connect(opts){
-      h=opts;
-      const mod=await import('https://esm.sh/@supabase/supabase-js@2');
-      client=mod.createClient(url,key,{realtime:{params:{eventsPerSecond:25}}});
-      channel=client.channel('sudoku-'+opts.room,{
-        config:{broadcast:{self:false},presence:{key:opts.id}}
-      });
-      channel.on('broadcast',{event:'msg'},({payload})=>h.onMsg(payload));
-      const sync=()=>{
-        const st=channel.presenceState()||{}, peers={};
-        for(const k in st){ const m=(st[k]&&st[k][0])||{}; peers[k]={name:m.name,cell:m.cell}; }
-        h.onPresence(peers);
-      };
-      channel.on('presence',{event:'sync'},sync);
-      channel.on('presence',{event:'join'},sync);
-      channel.on('presence',{event:'leave'},sync);
-      await new Promise((res,rej)=>{
-        const timer=setTimeout(()=>rej(new Error('timed out reaching Supabase')),15000);
-        channel.subscribe(async (status,err)=>{
-          if(status==='SUBSCRIBED'){ clearTimeout(timer); await channel.track(opts.meta); res(); }
-          else if(status==='CHANNEL_ERROR'||status==='TIMED_OUT'||status==='CLOSED'){
-            clearTimeout(timer); rej(err||new Error(status));
-          }
-        });
-      });
-    },
-    send(msg){ if(channel) channel.send({type:'broadcast',event:'msg',payload:msg}); },
-    updateMeta(meta){ if(channel) channel.track(meta); },
-    async disconnect(){
-      try{ if(channel) await channel.unsubscribe(); }catch(_){}
-      try{ if(client) client.removeAllChannels(); }catch(_){}
-      channel=null; client=null;
-    }
-  };
-}
-function makeTransport(){
-  if(window.__transportFactory) return window.__transportFactory();
-  return supabaseTransport(SUPABASE_URL,SUPABASE_ANON_KEY);
-}
-
-/* ---------- outgoing: diff local state and broadcast ---------- */
-function syncOutgoing(){
-  if(!room.active||room.status!=='live'||room.applying||!room.syncedVals) return;
-  const ops=[];
-  for(let c=0;c<81;c++){
-    if(S.vals[c]!==room.syncedVals[c]) ops.push({k:'v',c,v:S.vals[c]});
-    const was=room.syncedNotes[c], now=S.notes[c];
-    for(const d of now) if(!was.has(d)) ops.push({k:'n',c,d,on:1});
-    for(const d of was) if(!now.has(d)) ops.push({k:'n',c,d,on:0});
-  }
-  if(!ops.length) return;
-  const ts=++room.clock, by=room.id;
-  for(const o of ops){
-    if(o.k==='v'){ room.cellTs[o.c]=ts; room.cellBy[o.c]=by; }
-    else room.noteMeta.set(o.c+':'+o.d,{ts,by,on:o.on});
-  }
-  captureSynced();
-  room.transport.send({t:'ops',ts,by,ops});
-}
-
-/* ---------- incoming ---------- */
-function applyOps(msg){
-  const {ts,by,ops}=msg;
-  room.clock=Math.max(room.clock,ts);
-  for(const o of ops){
-    if(o.k==='v'){
-      if(S.givens[o.c]!==0) continue;                 // a clue is never overwritten
-      const curTs=room.cellTs[o.c]||0, curBy=room.cellBy[o.c]||'';
-      if(ts<curTs||(ts===curTs&&by<=curBy)) continue; // older write loses
-      S.vals[o.c]=o.v; room.cellTs[o.c]=ts; room.cellBy[o.c]=by;
-      if(o.v!==0) S.notes[o.c].clear();
-    }else{
-      if(S.givens[o.c]!==0||S.vals[o.c]!==0) continue;
-      const k=o.c+':'+o.d, cur=room.noteMeta.get(k);
-      if(cur&&(ts<cur.ts||(ts===cur.ts&&by<=cur.by))) continue;
-      room.noteMeta.set(k,{ts,by,on:o.on});
-      if(o.on) S.notes[o.c].add(o.d); else S.notes[o.c].delete(o.d);
-    }
-  }
-}
-function roomSnapshot(){          // distinct from the undo system's snapshot()
-  return {
-    code:S.givens.map(v=>v===0?'.':v).join(''),
-    vals:S.vals.slice(),
-    notes:S.notes.map(x=>[...x]),
-    cellTs:room.cellTs.slice(), cellBy:room.cellBy.slice(),
-    noteMeta:[...room.noteMeta.entries()],
-    clock:room.clock
-  };
-}
-function roomLoadSnapshot(sn){
-  room.applying=true;
-  loadPuzzle(sn.code,'Joined the room');
-  S.vals=sn.vals.slice();
-  S.notes=sn.notes.map(a=>new Set(a));
-  room.cellTs=sn.cellTs.slice(); room.cellBy=sn.cellBy.slice();
-  room.noteMeta=new Map(sn.noteMeta);
-  room.clock=Math.max(room.clock,sn.clock);
-  rebuildSolver();
-  room.applying=false;
-  captureSynced();
-}
-function onRoomMsg(msg){
-  if(!msg||!msg.t) return;
-  if(msg.t==='ops'){ applyOps(msg); captureSynced(); render(); return; }
-  if(msg.t==='hello'){
-    // the lowest-sorting connected peer answers, so a join doesn't cause a storm
-    const ids=Object.keys(room.peers).concat([room.id]).filter(i=>i!==msg.by).sort();
-    if(ids[0]===room.id) room.transport.send({t:'state',to:msg.by,snap:roomSnapshot()});
-    return;
-  }
-  if(msg.t==='state'){
-    if(!room.awaitingState||msg.to!==room.id) return;
-    room.awaitingState=false;
-    roomLoadSnapshot(msg.snap);
-    render();
-    return;
-  }
-  if(msg.t==='puzzle'){
-    room.applying=true;
-    loadPuzzle(msg.code,'A new puzzle was loaded by '+(room.peers[msg.by]?room.peers[msg.by].name:'someone'));
-    room.cellTs=new Array(81).fill(0); room.cellBy=new Array(81).fill(null);
-    room.noteMeta=new Map(); room.clock=Math.max(room.clock,msg.ts||0);
-    room.applying=false;
-    captureSynced(); render();
-  }
-}
-function onRoomPresence(peers){
-  delete peers[room.id];
-  room.peers=peers;
-  render();
-}
-function pushPresence(){
-  if(!(room.active&&room.transport&&room.status==='live')) return;
-  const cell=S.sel.size===1?[...S.sel][0]:null;
-  const sig=(room.name||'')+'|'+cell;
-  if(sig===room._presenceSig) return;      // otherwise presence echoes forever
-  room._presenceSig=sig;
-  room.transport.updateMeta({name:room.name,cell});
-}
-
-/* ---------- join / leave ---------- */
-async function joinRoom(code,create){
-  if(room.active) await leaveRoom();
-  room.id=randCode(4)+'-'+Date.now().toString(36);
-  room.name=room.name||NAMES[Math.floor(Math.random()*NAMES.length)];
-  room.code=code; room.status='connecting'; room.active=true; room.error=null; room._presenceSig=null;
-  room.cellTs=new Array(81).fill(0); room.cellBy=new Array(81).fill(null);
-  room.noteMeta=new Map(); room.clock=0;
-  renderRoom();
-  try{
-    room.transport=makeTransport();
-    await room.transport.connect({
-      room:code, id:room.id,
-      meta:{name:room.name,cell:null},
-      onMsg:onRoomMsg, onPresence:onRoomPresence
-    });
-    room.status='live';
-    captureSynced();
-    if(create){
-      room.transport.send({t:'puzzle',code:S.givens.map(v=>v===0?'.':v).join(''),by:room.id,ts:++room.clock});
-    }else{
-      room.awaitingState=true;
-      room.transport.send({t:'hello',by:room.id});
-      // if nobody answers we're simply first in, and keep the grid we have
-      setTimeout(()=>{ if(room.awaitingState){ room.awaitingState=false; captureSynced(); render(); } },2500);
-    }
-    try{ history.replaceState(null,'','#room='+code); }catch(_){}
-    render();
-  }catch(err){
-    room.status='error';
-    room.error=(err&&err.message)||String(err);
-    renderRoom();
-  }
-}
-async function leaveRoom(){
-  if(room.transport){ try{ await room.transport.disconnect(); }catch(_){} }
-  room.active=false; room.status='idle'; room.transport=null; room.peers={}; room.code=null;
-  room.syncedVals=null; room.syncedNotes=null;
-  try{ history.replaceState(null,'',location.pathname+location.search); }catch(_){}
-  render();
-}
-
-/* ---------- room panel ---------- */
-function renderRoom(){
-  const sig=JSON.stringify([room.active,room.status,room.code,room.error,roomConfigured(),
-    Object.keys(room.peers).sort().map(id=>[id,room.peers[id].name,room.peers[id].cell])]);
-  if(sig===room._panelSig) return;          // don't steal focus from the inputs
-  room._panelSig=sig;
-  const body=$('roomBody'), dot=$('roomDot');
-  dot.className='dot'+(room.status==='live'?' live':room.status==='error'?' err':'');
-  body.innerHTML='';
-  const el=(tag,cls,html)=>{const e=document.createElement(tag);if(cls)e.className=cls;if(html!=null)e.innerHTML=html;return e;};
-  const mkBtn=(label,fn,cls)=>{const b=document.createElement('button');b.className='btn tiny '+(cls||'');b.textContent=label;b.onclick=fn;return b;};
-
-  if(!roomConfigured()){
-    body.appendChild(el('p','roomnote',
-      'Live rooms need a Supabase project to relay messages between players — GitHub Pages can only serve files, it can\'t pass them along. Setup is two values and no database tables:'));
-    const ol=el('ol','setupsteps');
-    ol.innerHTML=
-      '<li>Create a free project at <b>supabase.com</b>.</li>'+
-      '<li>Open <b>Project Settings → API</b>.</li>'+
-      '<li>Copy the <b>Project URL</b> and the <b>anon / public</b> key.</li>'+
-      '<li>Paste both into <code>SUPABASE_URL</code> and <code>SUPABASE_ANON_KEY</code> near the top of this file\'s script.</li>';
-    body.appendChild(ol);
-    body.appendChild(el('p','roomnote',
-      'The anon key is designed to be public, so it\'s safe in a file on GitHub. Nothing is stored server-side — the room only relays messages between whoever is connected.'));
-    return;
-  }
-
-  if(!room.active){
-    body.appendChild(el('p','roomnote','Share a code and solve the same grid together. Everyone sees each other\'s digits and pencil marks as they land, and where each person is looking.'));
-    const r1=el('div','roomrow');
-    const nameIn=document.createElement('input');
-    nameIn.type='text'; nameIn.placeholder='your name';
-    nameIn.value=room.name||''; nameIn.style.width='150px';
-    nameIn.oninput=()=>{room.name=nameIn.value.trim()||null;};
-    r1.appendChild(el('span','lbl','name'));
-    r1.appendChild(nameIn);
-    body.appendChild(r1);
-
-    const r2=el('div','roomrow');
-    r2.appendChild(mkBtn('Create a room',()=>joinRoom(randCode(6),true),'primary'));
-    const codeIn=document.createElement('input');
-    codeIn.type='text'; codeIn.placeholder='or enter a code'; codeIn.style.width='150px';
-    codeIn.style.textTransform='uppercase';
-    r2.appendChild(codeIn);
-    r2.appendChild(mkBtn('Join',()=>{
-      const v=codeIn.value.trim().toUpperCase();
-      if(v) joinRoom(v,false);
-    }));
-    body.appendChild(r2);
-    return;
-  }
-
-  if(room.status==='connecting'){
-    body.appendChild(el('p','roomnote','Connecting to room <b>'+room.code+'</b>…'));
-    return;
-  }
-  if(room.status==='error'){
-    body.appendChild(el('p','roomnote','Couldn\'t connect: '+room.error+
-      '<br>Check the URL and key, and that the project is still active.'));
-    const r=el('div','roomrow');
-    r.appendChild(mkBtn('Try again',()=>joinRoom(room.code,false),'primary'));
-    r.appendChild(mkBtn('Cancel',leaveRoom));
-    body.appendChild(r);
-    return;
-  }
-
-  const r=el('div','roomrow');
-  r.appendChild(el('span','roomcode',room.code));
-  r.appendChild(mkBtn('Copy invite link',()=>{
-    const link=location.origin+location.pathname+'#room='+room.code;
-    const done=b=>{b.textContent='Copied';setTimeout(()=>b.textContent='Copy invite link',1200);};
-    const b=r.querySelectorAll('button')[0];
-    if(navigator.clipboard&&navigator.clipboard.writeText)
-      navigator.clipboard.writeText(link).then(()=>done(b),()=>{});
-    else done(b);
-  }));
-  r.appendChild(mkBtn('Leave',leaveRoom));
-  body.appendChild(r);
-
-  const roster=el('div','roster');
-  const me=el('span','who');
-  me.innerHTML='<b style="background:'+peerColor(room.id)+'"></b>'+(room.name||'you')+' <span class="at">(you)</span>';
-  roster.appendChild(me);
-  for(const id in room.peers){
-    const p=room.peers[id];
-    const w=el('span','who');
-    w.innerHTML='<b style="background:'+peerColor(id)+'"></b>'+(p.name||'player')+
-      (p.cell!=null?' <span class="at">'+rc(p.cell)+'</span>':'');
-    roster.appendChild(w);
-  }
-  body.appendChild(roster);
-
-  const n=Object.keys(room.peers).length;
-  body.appendChild(el('p','roomnote',
-    n?'Digits are tinted by whoever placed them. Hints, the timer and mistake-checking stay private to you.'
-     :'You\'re the only one here — send someone the code or the invite link.'));
-}
-
-/* ==========================================================
    STATE
    ========================================================== */
 const S={
@@ -1665,12 +1302,6 @@ function loadPuzzle(str,label){
   const token=nums.map(v=>v===0?'.':v).join('');
   $('pasteInput').value=token;
   S.tier=rate(nums).tier;
-  if(room.active&&room.status==='live'&&!room.applying){
-    room.cellTs=new Array(81).fill(0); room.cellBy=new Array(81).fill(null);
-    room.noteMeta=new Map();
-    captureSynced();
-    room.transport.send({t:'puzzle',code:token,by:room.id,ts:++room.clock});
-  }
   render();
   return true;
 }
@@ -1718,6 +1349,10 @@ document.addEventListener('pointercancel',()=>{dragging=false;});
 
 /* ---------- editing ---------- */
 function writeDigit(v){
+  // A digit typed across several selected cells is always meant as notes:
+  // the same digit can't legally sit in two cells of one unit, so filling
+  // them all would only ever create conflicts.
+  if(S.sel.size>1){ toggleNote(v); return; }
   const cells=[...S.sel].filter(c=>S.givens[c]===0);
   if(!cells.length) return;
   pushUndo();
@@ -1822,18 +1457,12 @@ function render(){
   const errCells=S.hintMsg&&S.hintMsg.kind==='error'?new Set(S.hintMsg.cells):new Set();
 
   const cursorPeers=(S.peerHL&&S.sel.size===1&&S.cursor!==null)?PEERSET[S.cursor]:null;
-  const remoteAt={};
-  if(room.active) for(const id in room.peers){
-    const pc=room.peers[id];
-    if(pc&&pc.cell!=null){ (remoteAt[pc.cell]=remoteAt[pc.cell]||[]).push(peerColor(id)); }
-  }
   const cursorBox=cursorPeers!==null?boxOf(S.cursor):-1;
 
   for(let c=0;c<81;c++){
     const el=boardEl.children[c];
     el.className='cell'+((c%9===2||c%9===5)?' br':'')+((Math.floor(c/9)===2||Math.floor(c/9)===5)?' bb':'');
     el.innerHTML='';
-    el.style.color='';
     const v=S.vals[c];
 
     if(cursorPeers&&cursorPeers.has(c)) el.classList.add(boxOf(c)===cursorBox?'peerbox':'peer');
@@ -1846,7 +1475,6 @@ function render(){
     if(v!==0){
       el.textContent=v;
       if(S.givens[c]!==0) el.classList.add('given');
-      else if(room.active&&room.cellBy[c]) el.style.color=peerColor(room.cellBy[c]);
       if(S.hlDigit===v) el.classList.add('match');
       if(wrong.has(c)) el.classList.add('wrong');
       if(conflicts.has(c)) el.classList.add('conflict');
@@ -1877,14 +1505,6 @@ function render(){
     }
     if(errCells.has(c)) el.classList.add('conflict');
     if(S.sel.has(c)) el.classList.add('sel');
-    if(room.active&&remoteAt[c]){
-      remoteAt[c].slice(0,2).forEach((col,k)=>{
-        const m=document.createElement('i');
-        m.className='rmark'+(k?' second':'');
-        m.style.borderColor=col;
-        el.appendChild(m);
-      });
-    }
   }
 
   // pads
@@ -1913,6 +1533,9 @@ function render(){
   $('redoBtn').disabled=!S.redo.length;
   $('pencilBtn').textContent=S.pencil?'✎ Pencil on':'✎ Pencil off';
   $('pencilBtn').classList.toggle('on',S.pencil);
+  const multi=S.sel.size>1;
+  $('padLabel').textContent=multi?'note ×'+S.sel.size:'write';
+  $('padDigits').classList.toggle('pencil-on',multi);
 
   $('checkBtn').textContent=S.check?'Mistake check on':'Mistake check off';
   $('checkBtn').classList.toggle('on',S.check);
@@ -1925,9 +1548,6 @@ function render(){
 
   renderHint();
   renderLibraryState();
-  renderRoom();
-  syncOutgoing();
-  pushPresence();
 }
 
 function renderHint(){
@@ -2218,12 +1838,6 @@ $('copyBtn').onclick=()=>{
   else {try{document.execCommand('copy');done();}catch(_){}}
 };
 $('loadBtn').onclick=()=>{if(S.generating)return;const v=$('pasteInput').value.trim();if(v)loadPuzzle(v,'Your puzzle');};
-$('roomBtn').onclick=()=>{
-  const card=$('roomCard');
-  card.style.display=card.style.display==='none'?'':'none';
-  if(card.style.display===''){ room._panelSig=null; renderRoom(); }
-};
-$('roomClose').onclick=()=>{ $('roomCard').style.display='none'; };
 $('editBtn').onclick=()=>{
   if(S.generating) return;
   S.givens=new Array(81).fill(0);S.vals=new Array(81).fill(0);
@@ -2322,21 +1936,9 @@ function updateClock(){
   const errs=[...new Set([...conflicts,...wrong])].length;
   $('stat').innerHTML=`<b>${filled}</b>/81 · ${clockText()}`+(S.paused?' · paused':'')+(errs?` · <span style="color:var(--danger)">${errs} wrong</span>`:'');
 }
-// small hook so the collaboration logic can be driven by tests
-window.__app={get room(){return room;},get S(){return S;},joinRoom,leaveRoom,onRoomMsg,render,peerColor,syncOutgoing};
-
 buildBoard();buildPads();buildLibrary();
 render();
-const invited=(location.hash.match(/room=([A-Z0-9]+)/i)||[])[1];
-makeAndLoad(2).then(()=>{
-  if(invited&&roomConfigured()){
-    $('roomCard').style.display='';
-    joinRoom(invited.toUpperCase(),false);
-  }else if(invited){
-    $('roomCard').style.display='';
-    room._panelSig=null; renderRoom();
-  }
-});
+makeAndLoad(2);
 setInterval(()=>{ if(S.runSince&&!dragging&&S.vals.some(v=>v===0)) updateClock(); },250);
 </script>
 </body>
