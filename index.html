@@ -404,6 +404,8 @@ footer{margin-top:34px;text-align:center;font-family:var(--mono);font-size:.66re
   <h1>Sudoku <em>Workbench</em></h1>
   <span class="tag">solve it yourself — ask for the logic only when you want it</span>
   <span style="flex:1"></span>
+  <a class="navlink" href="solve.html" style="color:var(--mint);border-color:rgba(72,217,160,.45)">Walk a puzzle →</a>
+  <a class="navlink" href="library.html" style="color:var(--violet);border-color:rgba(182,147,247,.4)">Techniques →</a>
   <a class="navlink" href="stuck.html">Stuck? →</a>
 </header>
 
@@ -421,6 +423,7 @@ footer{margin-top:34px;text-align:center;font-family:var(--mono);font-size:.66re
     <input type="text" id="pasteInput" spellcheck="false" placeholder="81 characters, . for blank">
     <button class="btn tiny" id="copyBtn">Copy</button>
     <button class="btn tiny" id="loadBtn">Load</button>
+    <button class="btn tiny" id="walkBtn" style="color:var(--mint);border-color:rgba(72,217,160,.45)">Walk through →</button>
   </div>
   <div class="msg" id="msg"></div>
 </div>
@@ -500,7 +503,7 @@ footer{margin-top:34px;text-align:center;font-family:var(--mono);font-size:.66re
 
     <div class="card lib">
       <h2>Technique library</h2>
-      <p>Twenty strategies, easiest first — each with tips for spotting it and worked examples on part-solved grids. A dot marks the ones you've already met in this puzzle.</p>
+      <p>Twenty strategies, easiest first — each with tips for spotting it and worked examples on part-solved grids. A dot marks the ones you've already met in this puzzle. For animated, step-by-step walkthroughs see the <a href="library.html" style="color:var(--violet)">full library</a>.</p>
       <div id="libList"></div>
     </div>
   </div>
@@ -906,11 +909,28 @@ function findBUG(b,cd){
     return null;
   }
   if(tri===null) return null;
+  // Verify the BUG signature exactly: in every unit each missing digit must appear
+  // exactly twice, bar the odd digit at `tri`, which appears three times in the three
+  // units containing it. Counting one row is unsound — an all-bivalue grid can still
+  // hide a single, and a digit can then hit three in a row without being the BUG digit.
+  const bugShape=v=>{
+    for(const u of ALL_UNITS){
+      const empt=u.cells.filter(c=>b[c]===0);
+      if(!empt.length) continue;
+      const missing=new Set(); empt.forEach(c=>cd[c].forEach(d=>missing.add(d)));
+      for(const d of missing){
+        const n=empt.filter(c=>cd[c].has(d)).length;
+        const expect=(d===v&&u.cells.includes(tri))?3:2;
+        if(n!==expect) return false;
+      }
+    }
+    return true;
+  };
   for(const v of cd[tri]){
-    if(unitCells('row',rowOf(tri)).filter(c=>b[c]===0&&cd[c].has(v)).length===3){
+    if(bugShape(v)){
       return{key:'bug',title:'BUG + 1',where:rc(tri),
         nudge:`Every unsolved cell now has exactly two candidates — except <span class="cellref">${rc(tri)}</span>, which has three.`,
-        explanation:`Every remaining cell is down to two candidates apart from <span class="cellref">${rc(tri)}</span>, which has three. If it had two as well, every digit would appear exactly twice in every unit — and a grid like that always has two solutions, swapping the pairs. Since a proper puzzle has one, the extra candidate must be the answer. It's the digit appearing three times in row ${rowOf(tri)+1}: <b>${v}</b>.`,
+        explanation:`Every remaining cell is down to two candidates apart from <span class="cellref">${rc(tri)}</span>, which has three. If it had two as well, every digit would appear exactly twice in every unit — and a grid like that always has two solutions, swapping the pairs. Since a proper puzzle has one, the extra candidate must be the answer. It's the digit appearing three times in this cell's row, column and box alike: <b>${v}</b>.`,
         highlights:{[tri]:'target'},marks:{[tri]:[v]},
         placements:[{cell:tri,value:v}],eliminations:[]};
     }
@@ -967,6 +987,7 @@ function conflictCells(vals){
   return bad;
 }
 
+const EXAMPLE_CANDS={'bug':[[[2,7],[],[],[7,9],[],[],[],[],[2,9],[],[],[],[],[],[],[],[],[],[2,7],[],[],[7,8,9],[],[7,8],[2,9],[],[],[],[5,7],[],[7,8],[],[],[2,8],[],[2,5],[],[],[],[],[],[],[],[],[],[],[5,7],[],[],[],[7,8],[6,8],[],[5,6],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[6,9],[],[6,9]],[[2,5,8],[],[],[],[2,3],[8,9],[2,9],[3,5],[],[2,5],[6,7],[],[],[],[7,9],[],[5,6],[2,9],[2,8],[6,7],[],[],[2,3],[7,8],[],[3,6],[],[],[],[],[],[],[],[2,9],[],[2,9],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[]],[[],[5,9],[3,9],[],[3,6],[5,6],[],[],[],[],[],[3,8],[3,5],[],[],[],[],[5,8],[],[5,8],[],[],[],[],[],[],[5,8],[8,9],[],[],[1,3],[3,6],[],[5,6],[5,8,9],[1,9],[],[8,9],[],[1,6],[],[],[],[8,9],[1,6],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[8,9],[],[8,9],[],[],[5,6],[5,6],[],[],[],[],[],[5,6],[],[],[],[5,9],[6,9]]]};
 const EXAMPLES={
   'naked-single':[
     '4.7..5..85.97......3864.......19.2.6..6....53..1.8.479.7........83.62..7..2.....4',
@@ -1064,9 +1085,9 @@ const EXAMPLES={
     '7..2.....19..4...84.2.5.76.8..4.1..29..82.4..324.9..5.5..3.....2.3.14...6...7..8.',
   ],
   'bug':[
-    '.7438129.9.8.2471332179..4..3.412..9849..7321215938674.831.94621..2439..4928..137',
-    '81.6.239.639..52.74.23.96..9634175825219384767482569313...617291967238..2....4163',
-    '.61548.727.862..4124.1..6.86924.178.5139874264872.6.19824365197...7128641768942..',
+    '.18.6534.396124587.45.3..616.4.13.9.8326597149.124..3.169372458487596123523481.7.',
+    '.416....7..314.8....95..1.4415863.7.928475316637912548194386725352794681786251493',
+    '7..8..12462..4197.4.172936..74..2...3.5.742..216958743567493812.4.21..37132.874..',
   ],
 };
 
@@ -1598,7 +1619,7 @@ function renderHint(){
     if(S.hintMsg.kind==='exhausted'){
       pill.style.display='';pill.className='pill d';pill.textContent='beyond the library';
       body.innerHTML=`<p>None of the twenty techniques finds a forced move from this position. That's the honest answer — this grid needs something heavier, like a forcing chain or a nishio.</p>
-        <p class="muted">You can uncover a single digit to break the deadlock, or read <a href="stuck.html" style="color:var(--amber)">what to do when you're stuck</a> for the order to work through.</p>`;
+        <p class="muted">You can uncover a single digit to break the deadlock, or read <a href="stuck.html" style="color:var(--amber)">what to do when you're stuck</a>. Every technique is played out step by step in the <a href="library.html" style="color:var(--violet)">library</a>, and you can <a href="solve.html" style="color:var(--mint)">walk this whole puzzle through</a>.</p>`;
       add('Uncover one digit',revealOne,'amber');
       add('Never mind',()=>{S.hintMsg=null;render();});
       return;
@@ -1662,10 +1683,13 @@ function variantLabel(key,step){
   return null;
 }
 
-function drawExample(slot,key,str){
+function drawExample(slot,key,str,exIndex){
   slot.innerHTML='';
   const b=[...str].map(ch=>ch==='.'?0:parseInt(ch,10));
-  const cd=computeCandidates(b);
+  // BUG+1 can only arise once candidates have been eliminated, so that entry
+  // ships the candidate state its example depends on.
+  const stored=EXAMPLE_CANDS[key]&&EXAMPLE_CANDS[key][exIndex||0];
+  const cd=stored?stored.map(a=>new Set(a)):computeCandidates(b);
   const st=FINDER[key](b,cd);
   if(!st){slot.textContent='(example unavailable)';return;}
 
@@ -1727,8 +1751,9 @@ function renderExample(host,key){
   const entries=[];
   list.forEach((str,i)=>{
     const b=[...str].map(ch=>ch==='.'?0:parseInt(ch,10));
-    const st=FINDER[key](b,computeCandidates(b));
-    if(st) entries.push({str,label:variantLabel(key,st)||`example ${i+1}`});
+    const stored=EXAMPLE_CANDS[key]&&EXAMPLE_CANDS[key][i];
+    const st=FINDER[key](b,stored?stored.map(a=>new Set(a)):computeCandidates(b));
+    if(st) entries.push({str,idx:i,label:variantLabel(key,st)||`example ${i+1}`});
   });
   if(!entries.length){host.remove();return;}
   // two examples can legitimately share a shape; number them so the tabs stay distinguishable
@@ -1754,7 +1779,7 @@ function renderExample(host,key){
       t.onclick=()=>{
         [...tabs.children].forEach(x=>x.classList.remove('on'));
         t.classList.add('on');
-        drawExample(slot,key,en.str);
+        drawExample(slot,key,en.str,en.idx);
       };
       tabs.appendChild(t);
     });
@@ -1762,7 +1787,7 @@ function renderExample(host,key){
   }
 
   host.appendChild(slot);
-  drawExample(slot,key,entries[0].str);
+  drawExample(slot,key,entries[0].str,entries[0].idx);
 }
 
 function buildLibrary(){
@@ -1844,6 +1869,12 @@ async function makeAndLoad(want){
 document.querySelectorAll('[data-gen]').forEach(b=>{
   b.onclick=()=>makeAndLoad(+b.dataset.gen);
 });
+$('walkBtn').onclick=()=>{
+  // hand the original clues to the walkthrough, not the half-finished grid
+  const code=S.givens.map(v=>v===0?'.':v).join('');
+  if(!S.givens.some(v=>v!==0)){ say('Load or generate a puzzle first.'); return; }
+  window.open('solve.html#p='+code,'_blank');
+};
 $('copyBtn').onclick=()=>{
   const inp=$('pasteInput'); inp.select();
   const done=()=>{const t=$('copyBtn');t.textContent='Copied';setTimeout(()=>t.textContent='Copy',1200);};
