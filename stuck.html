@@ -137,9 +137,13 @@ section{margin-top:46px;}
 .fbtn{font-family:var(--mono);font-size:.7rem;padding:7px 12px;border-radius:7px;
   border:1px solid var(--edge);background:var(--surface-2);color:var(--text);cursor:pointer;}
 .fbtn:hover{border-color:var(--rule);}
-.pips{display:flex;gap:4px;margin-left:auto;}
-.pip{width:16px;height:3px;border-radius:2px;background:var(--surface-3);transition:background .25s;}
-.pip.on{background:var(--amber);}
+.pips{display:flex;gap:5px;margin-left:auto;align-items:center;}
+.pip{width:22px;height:5px;border-radius:3px;background:var(--surface-3);border:none;padding:0;
+  cursor:pointer;transition:background .25s,transform .15s;}
+.pip:hover{background:var(--rule);transform:scaleY(1.6);}
+.pip.done{background:rgba(255,180,77,.45);}
+.pip.now{background:var(--amber);transform:scaleY(1.6);}
+.stepnum{font-family:var(--mono);font-size:.62rem;color:var(--text-dim);margin-left:4px;}
 
 /* ---- traps ---- */
 .trap{background:var(--surface);border:1px solid var(--edge);border-radius:11px;padding:17px 19px;margin-bottom:12px;}
@@ -188,6 +192,8 @@ footer a{color:var(--entry);text-decoration:none;}
 <header>
   <div class="crumb">
     <a class="backlink" href="index.html">← Back to the board</a>
+    <a class="backlink" href="solve.html" style="color:var(--mint);border-color:rgba(72,217,160,.45)">Walk a puzzle →</a>
+    <a class="backlink" href="library.html" style="color:var(--violet);border-color:rgba(182,147,247,.4)">Technique library →</a>
   </div>
   <h1>When you're <em>stuck</em></h1>
   <p class="lede">Being stuck almost never means the puzzle needs something clever. Nine times out of ten it means
@@ -352,12 +358,13 @@ footer a{color:var(--entry);text-decoration:none;}
 </section>
 
 <footer>
-  <a href="index.html">← Back to the board</a> · the technique library there explains each pattern in full
+  <a href="index.html">← Back to the board</a> · <a href="library.html">the technique library</a> plays each pattern out step by step
 </footer>
 </div>
 
 <script>
 const FILMS={"count":{"board":"4....378..35.984.1........9...4169..9...52..8.........5..6871....6.....7.47...65.","frames":[{"cap":"Start where the grid is nearly full. <b>Row 2</b> has only three gaps.","cells":{"9":"scan","10":"scan","11":"scan","12":"scan","13":"scan","14":"scan","15":"scan","16":"scan","17":"scan"},"dur":1700},{"cap":"Read off what's already in it: <b>1, 3, 4, 5, 8, 9</b>.","cells":{"10":"target","11":"target","13":"target","14":"target","15":"target","17":"target"},"dur":1900},{"cap":"So the missing digits are <b>2, 6, 7</b> — and they go in these three cells.","cells":{"9":"home","12":"home","16":"home"},"dur":1900},{"cap":"Now ask each gap which of the three it can actually take.","cells":{"9":"home","12":"home","16":"home"},"marks":{"9":[2,6,7],"12":[2,7],"16":[2,6]},"dur":2100},{"cap":"Narrowing three digits to three cells is often enough on its own.","cells":{"9":"home","12":"home","16":"home"},"marks":{"9":[2,6,7],"12":[2,7],"16":[2,6]},"dur":2200}]},"band":{"board":"4....378..35.9.4.1........9...4169..9...5...8.........5..6871....6.....7.47...65.","frames":[{"cap":"Pick a digit and chase it — here, <b>8</b>. These are the 8s already placed.","cells":{"7":"target","44":"target","58":"target"},"dur":2000},{"cap":"Now look at one box that still needs a 8: <b>box 9</b>. Five cells are open.","cells":{"7":"target","44":"target","58":"target","61":"scan","62":"scan","69":"scan","70":"scan","80":"scan"},"dur":2000},{"cap":"The 8 in <b>R1C8</b> blocks column 8 — so none of those cells can be 8.","cells":{"7":"home","44":"target","58":"target","61":"scan","62":"scan","69":"scan","70":"kill","80":"scan"},"ray":{"type":"col","i":7},"dur":2100},{"cap":"The 8 in <b>R5C9</b> blocks column 9 — so none of those cells can be 8.","cells":{"7":"target","44":"home","58":"target","61":"scan","62":"scan","69":"scan","70":"kill","80":"kill"},"ray":{"type":"col","i":8},"dur":2100},{"cap":"The 8 in <b>R7C5</b> blocks row 7 — so none of those cells can be 8.","cells":{"7":"target","44":"target","58":"home","61":"kill","62":"kill","69":"scan","70":"kill","80":"kill"},"ray":{"type":"row","i":6},"dur":2100},{"cap":"One cell survives. <b>R8C7</b> must be 8 — found without a single pencil mark.","cells":{"61":"kill","62":"kill","69":"home","70":"kill","80":"kill"},"place":{"69":8},"dur":2600}]},"pointing":{"board":"4....378..35.9.4.1........9...4169..9...5...8.........5..6871....6.....7.47...65.","frames":[{"cap":"In <b>box 5</b>, ask where the 8 can still go.","cells":{"30":"scan","31":"scan","32":"scan","39":"scan","40":"scan","41":"scan","48":"scan","49":"scan","50":"scan"},"dur":1900},{"cap":"Only these cells — and they all sit in <b>row 6</b>.","cells":{"48":"home","50":"home"},"marks":{"48":[8],"50":[8]},"dur":2200},{"cap":"The box has to contain a 8, so the 8 for row 6 is already spoken for.","cells":{"48":"home","50":"home"},"ray":{"type":"row","i":5},"marks":{"48":[8],"50":[8]},"dur":2300},{"cap":"So 8 comes out of the rest of row 6: <b>R6C1, R6C2, R6C3</b>.","cells":{"45":"elim","46":"elim","47":"elim","48":"home","50":"home"},"ray":{"type":"row","i":5},"marks":{"45":[8],"46":[8],"47":[8],"48":[8],"50":[8]},"cut":{"45":[8],"46":[8],"47":[8]},"dur":2600}]},"pair":{"board":"4....378..35.9.4.1........9...4169..9...5...8.........5..6871....6.....7.47...65.","frames":[{"cap":"Scan a unit for cells down to exactly two marks. Here, <b>row 9</b>.","cells":{"76":"scan","80":"scan"},"dur":1900},{"cap":"<b>R9C5 and R9C9</b> both hold only {2, 3}.","cells":{"76":"home","80":"home"},"marks":{"76":[2,3],"80":[2,3]},"dur":2200},{"cap":"Two cells, two digits — between them they use both up, in some order.","cells":{"76":"home","80":"home"},"marks":{"76":[2,3],"80":[2,3]},"dur":2300},{"cap":"So 2 and 3 leave every other cell in row 9.","cells":{"72":"elim","75":"elim","76":"home","77":"elim","80":"home"},"marks":{"72":[1,2,3,8],"75":[1,2,3,9],"76":[2,3],"77":[1,2,9],"80":[2,3]},"cut":{"72":[2,3],"75":[2,3],"77":[2]},"dur":2600}]},"wing":{"board":"..9.5.34.3147985..5624..798...9..4...5.84.2.949.1728...45...9..9.8..41.7..7..96.4","frames":[{"cap":"When the easy passes dry up, light up every cell that's down to <b>two</b> marks.","cells":{"0":"scan","1":"scan","3":"scan","5":"scan","16":"scan","17":"scan","22":"scan","23":"scan","31":"scan","41":"scan","47":"scan","62":"scan","64":"scan","72":"scan","73":"scan"},"dur":2300},{"cap":"There are 15 of them. These are the raw material for every wing and chain.","cells":{"0":"scan","1":"scan","3":"scan","5":"scan","16":"scan","17":"scan","22":"scan","23":"scan","31":"scan","41":"scan","47":"scan","62":"scan","64":"scan","72":"scan","73":"scan"},"marks":{"0":[7,8],"1":[7,8],"3":[2,6],"5":[1,6],"16":[2,6],"17":[2,6],"22":[1,3],"23":[1,3],"31":[3,6],"41":[3,6],"47":[3,6],"62":[2,3],"64":[2,3],"72":[1,2],"73":[2,3]},"dur":2600},{"cap":"Take one as a pivot — <b>R1C6</b> {1, 6} — and look at the two-mark cells it sees.","cells":{"5":"home"},"marks":{"5":[1,6],"22":[1,3],"41":[3,6]},"dur":2400},{"cap":"<b>R3C5</b> and <b>R5C6</b> each share one digit with it, and both carry a 3.","cells":{"5":"home","22":"target","41":"target"},"marks":{"5":[1,6],"22":[1,3],"41":[3,6]},"dur":2600},{"cap":"Whichever way the pivot falls, one of them is 3 — so <b>R3C6, R4C5</b> can't be.","cells":{"5":"home","22":"target","23":"elim","31":"elim","41":"target"},"marks":{"5":[1,6],"22":[1,3],"23":[1,3],"31":[3,6],"41":[3,6]},"cut":{"23":[3],"31":[3]},"dur":2800}]},"bust":{"board":"4....378..35.9.4.1........9...4169..9...5...8.........5..6871....6.....7.47...65.","frames":[{"cap":"If nothing at all works, the grid may already be broken. Suspect a digit you were unsure of.","cells":{"14":"scan"},"marks":{"14":[2,8]},"dur":2300},{"cap":"Say <b>R2C6</b> went in as 2 a while back.","cells":{"14":"bad"},"bad":{"14":2},"dur":2200},{"cap":"Follow the consequences along its row, column and box.","cells":{"14":"bad","41":"scan"},"bad":{"14":2},"ray":{"type":"col","i":5},"dur":2300},{"cap":"<b>R5C6</b> now has <b>no candidates at all</b> — nothing can legally go there.","cells":{"14":"bad","41":"dead"},"bad":{"14":2},"dur":2700},{"cap":"An empty cell with nothing left is proof of an earlier mistake, not a hard puzzle.","cells":{"14":"bad","41":"dead"},"bad":{"14":2},"dur":2600}]}};
+const SPEED=1.4;   // dwell multiplier — a little slower than the authored timings
 
 /* --- minimal grid helpers, enough to render candidates truthfully --- */
 const rowOf=c=>Math.floor(c/9), colOf=c=>c%9;
@@ -389,10 +396,19 @@ function buildFilm(host,key){
   const cap=document.createElement('div'); cap.className='cap';
   const ctrl=document.createElement('div'); ctrl.className='fctrl';
   const play=document.createElement('button'); play.className='fbtn';
-  const again=document.createElement('button'); again.className='fbtn'; again.textContent='↺ Replay';
+  const prev=document.createElement('button'); prev.className='fbtn'; prev.textContent='‹ Back';
+  const next=document.createElement('button'); next.className='fbtn'; next.textContent='Next ›';
   const pips=document.createElement('div'); pips.className='pips';
-  film.frames.forEach(()=>{const p=document.createElement('i');p.className='pip';pips.appendChild(p);});
-  ctrl.appendChild(play); ctrl.appendChild(again); ctrl.appendChild(pips);
+  const num=document.createElement('span'); num.className='stepnum';
+  film.frames.forEach((_,k)=>{
+    const p=document.createElement('button');
+    p.className='pip'; p.title='Step '+(k+1);
+    p.setAttribute('aria-label','Go to step '+(k+1));
+    p.onclick=()=>{ stop(); idx=k; draw(idx); };
+    pips.appendChild(p);
+  });
+  pips.appendChild(num);
+  ctrl.appendChild(play); ctrl.appendChild(prev); ctrl.appendChild(next); ctrl.appendChild(pips);
   side.appendChild(cap); side.appendChild(ctrl);
   host.appendChild(gridWrap); host.appendChild(side);
 
@@ -437,7 +453,10 @@ function buildFilm(host,key){
       grid.appendChild(r);
     }
     cap.innerHTML=f.cap;
-    [...pips.children].forEach((p,k)=>p.classList.toggle('on',k<=n));
+    [...pips.querySelectorAll('.pip')].forEach((p,k)=>{
+      p.classList.toggle('done',k<n); p.classList.toggle('now',k===n);
+    });
+    num.textContent=(n+1)+'/'+film.frames.length;
   }
 
   function step(){
@@ -445,15 +464,16 @@ function buildFilm(host,key){
     timer=setTimeout(()=>{
       idx=(idx+1)%film.frames.length;
       if(idx===0){ // pause a beat on the loop point
-        timer=setTimeout(step,700);
+        timer=setTimeout(step,900*SPEED);
       } else step();
-    },film.frames[idx].dur||2000);
+    },(film.frames[idx].dur||2000)*SPEED);
   }
   function start(){ if(playing)return; playing=true; play.textContent='❚❚ Pause'; step(); }
   function stop(){ playing=false; play.textContent='▶ Play'; clearTimeout(timer); }
 
   play.onclick=()=>playing?stop():start();
-  again.onclick=()=>{ stop(); idx=0; start(); };
+  prev.onclick=()=>{ stop(); idx=(idx-1+film.frames.length)%film.frames.length; draw(idx); };
+  next.onclick=()=>{ stop(); idx=(idx+1)%film.frames.length; draw(idx); };
 
   draw(0); play.textContent='▶ Play';
 
