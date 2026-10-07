@@ -1,44 +1,35 @@
 # Sudoku Workbench
 
-A single-file Sudoku trainer. Solve puzzles yourself with mistake checking, and
-ask for the logic only when you want it — twenty solving techniques, each with
-spotting tips and worked examples on part-solved grids. Optional live rooms let
-several people solve the same grid together.
+A two-page Sudoku trainer, both pages self-contained with no build step and no
+dependencies.
+
+- **`index.html`** — the board. Solve it yourself with mistake checking, and ask
+  for the logic only when you want it: twenty techniques, each with spotting
+  tips and worked examples on part-solved grids.
+- **`stuck.html`** — what to do when you're stuck. A triage, then a fixed ladder
+  of passes from cheapest to most expensive, with looping animated demos built
+  from real board positions.
 
 ## Hosting
 
-`index.html` is self-contained: no build step, no bundler, no server code.
-Drop it on any static host.
-
-For GitHub Pages, put `index.html` in the repository root, then
+Put both files in the repository root. For GitHub Pages:
 **Settings → Pages → Source: Deploy from a branch → main → /(root)**.
+The two pages link to each other by relative filename, so they must sit in the
+same folder.
 
-## Optional: live rooms
+## Input
 
-Solo play needs no setup. Shared rooms need something to relay messages between
-players, which a static host can't do. Supabase Realtime handles this on its free
-tier, and needs **no database tables** — only broadcast and presence.
-
-1. Create a free project at [supabase.com](https://supabase.com).
-2. Your **Project URL** is `https://<project-id>.supabase.co` — the project ID is
-   on **Project Settings → General**, and the URL is also shown on
-   **Project Settings → Data API**.
-3. Open **Project Settings → API Keys** and copy the **publishable** key
-   (`sb_publishable_...`). Older projects label this the **anon / public** key;
-   either works. Do not use the **secret** key.
-4. Paste both into `SUPABASE_URL` and `SUPABASE_KEY` near the top of the
-   `<script>` block in `index.html`.
-
-The project's **Connect** button shows the URL and key together, which is the
-quickest way to grab both. The publishable key is designed to be published, so it
-is safe in a public repo. Rooms
-hold no server-side state: the relay just forwards messages between whoever is
-connected, so a room empties when the last player leaves.
+- Select a cell and press **1**–**9** to place a digit.
+- **Ctrl**/**Shift** + a number, or the **note** pad, pencils in a candidate.
+- Select several cells (shift-click or drag) and a number pencils a note into
+  all of them at once.
+- **Ctrl+Z** / **Ctrl+Y** undo and redo, **H** for a hint, **P** to pause,
+  **R** toggles the row/column/box highlight.
 
 ## Notes
 
-- Fonts load from Google Fonts; without a connection the app still works and
-  falls back to system fonts.
-- The Supabase client is imported only when you actually open a room.
-- Nothing persists between sessions. Puzzles travel as 81-character codes you
-  can copy, paste and share.
+- Fonts load from Google Fonts; without a connection both pages still work and
+  fall back to system fonts.
+- The animations on the guide are CSS and DOM, not video or GIF files — they
+  stay crisp at any size and add nothing to load time.
+- Nothing persists between sessions. Puzzles travel as 81-character codes.
