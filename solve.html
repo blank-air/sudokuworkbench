@@ -1,0 +1,942 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Step-by-step solver — Sudoku Workbench</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#10141C; --surface:#171E29; --surface-2:#1F2836; --surface-3:#27313F;
+  --edge:#2C3849; --rule:#546683; --cell:#141A24; --cell-alt:#171E29;
+  --given:#E8EEF8; --entry:#54C7F0; --pencil:#6F809A; --pencil-on:#A7BAD6;
+  --danger:#FF6F6B; --amber:#FFB44D; --violet:#B693F7; --mint:#48D9A0;
+  --text:#D3DCEA; --text-dim:#8695AC;
+  --serif:'Instrument Serif',Georgia,serif;
+  --sans:'IBM Plex Sans',system-ui,sans-serif;
+  --mono:'IBM Plex Mono',monospace;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+button,a,input{touch-action:manipulation;}
+html,body{margin:0;padding:0;}
+body{
+  background:
+    radial-gradient(1100px 600px at 12% -8%, #1B2740 0%, transparent 55%),
+    radial-gradient(900px 500px at 100% 0%, #241E3A 0%, transparent 50%),
+    var(--bg);
+  background-attachment:fixed; color:var(--text); font-family:var(--sans); font-size:16px;
+  min-height:100vh; min-height:100dvh;
+  padding:calc(26px + env(safe-area-inset-top)) calc(18px + env(safe-area-inset-right))
+          calc(60px + env(safe-area-inset-bottom)) calc(18px + env(safe-area-inset-left));
+  -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:1120px;margin:0 auto;}
+header{margin-bottom:20px;}
+.crumb{display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap;}
+.backlink{font-family:var(--mono);font-size:.76rem;color:var(--entry);text-decoration:none;
+  border:1px solid var(--edge);border-radius:7px;padding:8px 13px;}
+.backlink.v{color:var(--violet);border-color:rgba(182,147,247,.4);}
+.backlink.a{color:var(--amber);border-color:rgba(255,180,77,.4);}
+h1{font-family:var(--serif);font-weight:400;font-size:2.6rem;line-height:1.05;margin:0 0 10px;color:#F2F6FC;}
+h1 em{font-style:italic;color:var(--mint);}
+.lede{font-size:1.02rem;line-height:1.7;color:var(--text-dim);margin:0;max-width:62ch;}
+.lede b{color:var(--text);font-weight:500;}
+
+.inbar{background:var(--surface);border:1px solid var(--edge);border-radius:11px;
+  padding:14px 16px;margin:20px 0;display:flex;gap:9px;flex-wrap:wrap;align-items:center;}
+.inbar .lbl{font-family:var(--mono);font-size:.68rem;color:var(--text-dim);}
+input[type=text]{font-family:var(--mono);font-size:.78rem;padding:10px 11px;background:var(--cell);
+  border:1px solid var(--edge);border-radius:7px;color:var(--text);flex:1 1 330px;min-width:200px;letter-spacing:.02em;}
+input[type=text]:focus{outline:none;border-color:var(--entry);}
+.btn{font-family:var(--sans);font-weight:500;font-size:.82rem;padding:10px 15px;border-radius:7px;
+  border:1px solid var(--edge);background:var(--surface-2);color:var(--text);cursor:pointer;}
+.btn:hover:not(:disabled){background:var(--surface-3);border-color:var(--rule);}
+.btn:disabled{opacity:.35;cursor:not-allowed;}
+.btn.go{background:var(--mint);border-color:var(--mint);color:#062116;font-weight:600;}
+.btn.go:hover:not(:disabled){background:#6FE5B5;border-color:#6FE5B5;}
+.btn.sm{font-family:var(--mono);font-size:.7rem;padding:8px 11px;}
+.btn.sm.on{border-color:var(--amber);color:var(--amber);background:rgba(255,180,77,.12);}
+.msg{flex-basis:100%;font-family:var(--mono);font-size:.72rem;color:var(--danger);min-height:1em;}
+.msg.ok{color:var(--mint);}
+
+.main{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:22px;align-items:start;}
+@media(max-width:860px){.main{grid-template-columns:1fr;}}
+.panel{background:var(--surface);border:1px solid var(--edge);border-radius:12px;padding:18px;}
+
+.boardwrap{position:relative;width:100%;max-width:470px;margin:0 auto;}
+.grid{display:grid;grid-template-columns:repeat(9,1fr);width:100%;aspect-ratio:1;
+  border:2px solid var(--rule);border-radius:5px;overflow:hidden;background:var(--edge);gap:1px;position:relative;}
+.gc{background:var(--cell);display:flex;align-items:center;justify-content:center;position:relative;
+  font-family:var(--mono);font-size:clamp(.8rem,3.2vw,1.2rem);color:var(--entry);transition:background .35s ease;}
+.gc:nth-child(18n+1),.gc:nth-child(18n+2),.gc:nth-child(18n+3),
+.gc:nth-child(18n+7),.gc:nth-child(18n+8),.gc:nth-child(18n+9),
+.gc:nth-child(18n+13),.gc:nth-child(18n+14),.gc:nth-child(18n+15){background:var(--cell-alt);}
+.gc.br{border-right:2px solid var(--rule);} .gc.bb{border-bottom:2px solid var(--rule);}
+.gc.given{color:var(--given);font-weight:600;}
+.gc.scope{background:rgba(84,199,240,.14);}
+.gc.target{background:rgba(255,180,77,.30);}
+.gc.elim{background:rgba(255,111,107,.15);}
+.gc.fresh .v{color:var(--mint);font-weight:600;animation:pop .5s ease;}
+@keyframes pop{0%{transform:scale(.3);opacity:0;}70%{transform:scale(1.18);}100%{transform:scale(1);opacity:1;}}
+.pm{display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(3,1fr);width:100%;height:100%;padding:2px;}
+.pm span{font-family:var(--mono);font-size:clamp(.4rem,1.5vw,.56rem);color:var(--pencil);
+  display:flex;align-items:center;justify-content:center;line-height:1;}
+.pm span.key{color:var(--amber);font-weight:600;background:rgba(255,180,77,.2);border-radius:2px;}
+.pm span.cut{color:var(--danger);font-weight:600;text-decoration:line-through;}
+.ray{position:absolute;background:linear-gradient(90deg,rgba(255,180,77,0),rgba(255,180,77,.24));
+  pointer-events:none;z-index:3;animation:swR .7s ease-out;}
+.ray.col{background:linear-gradient(180deg,rgba(255,180,77,0),rgba(255,180,77,.24));animation:swC .7s ease-out;}
+@keyframes swR{from{transform:scaleX(0);transform-origin:left;}to{transform:scaleX(1);transform-origin:left;}}
+@keyframes swC{from{transform:scaleY(0);transform-origin:top;}to{transform:scaleY(1);transform-origin:top;}}
+
+.prog{height:5px;background:var(--surface-3);border-radius:3px;overflow:hidden;margin:14px 0 10px;}
+.prog i{display:block;height:100%;background:linear-gradient(90deg,var(--entry),var(--mint));transition:width .3s;}
+.stepline{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:6px;}
+.stepno{font-family:var(--mono);font-size:.68rem;color:var(--text-dim);}
+.tname{font-family:var(--serif);font-size:1.5rem;color:#EEF3FA;}
+.tag{font-family:var(--mono);font-size:.6rem;padding:3px 9px;border-radius:20px;border:1px solid var(--amber);color:var(--amber);}
+.tag.place{border-color:var(--mint);color:var(--mint);}
+.why{line-height:1.7;margin:10px 0 0;min-height:5.4em;}
+.why .cellref{font-family:var(--mono);font-size:.86em;color:var(--amber);}
+.why b{color:var(--amber);font-weight:500;}
+.ctrls{display:flex;gap:7px;flex-wrap:wrap;align-items:center;margin-top:14px;
+  padding-top:14px;border-top:1px solid var(--edge);}
+
+.movehead{display:flex;align-items:center;gap:10px;margin:18px 0 8px;}
+.movehead h3{font-family:var(--mono);font-size:.66rem;color:var(--amber);margin:0;letter-spacing:.05em;}
+.moves{max-height:330px;overflow-y:auto;border:1px solid var(--edge);border-radius:9px;background:var(--cell);}
+.mv{width:100%;display:flex;gap:9px;align-items:baseline;padding:8px 11px;background:none;border:none;
+  border-bottom:1px solid rgba(44,56,73,.6);color:var(--text-dim);cursor:pointer;text-align:left;
+  font-family:var(--sans);font-size:.84rem;}
+.mv:last-child{border-bottom:none;}
+.mv:hover{background:var(--surface-2);color:var(--text);}
+.mv.now{background:rgba(255,180,77,.13);color:var(--text);}
+.mv.now .mvn{color:var(--amber);}
+.mv.hard{color:var(--text);}
+.mv.hard .mvt{color:var(--violet);}
+.mv .mvn{font-family:var(--mono);font-size:.64rem;color:var(--text-dim);flex:none;width:24px;}
+.mv .mvt{font-weight:500;}
+.mv .mvd{font-family:var(--mono);font-size:.7rem;margin-left:auto;flex:none;padding-left:8px;}
+
+.summary{margin-top:18px;}
+.sgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:14px;}
+.stat{background:var(--surface-2);border:1px solid var(--edge);border-radius:9px;padding:12px 14px;}
+.stat .n{font-family:var(--serif);font-size:1.7rem;color:var(--mint);line-height:1;}
+.stat .l{font-family:var(--mono);font-size:.6rem;color:var(--text-dim);margin-top:5px;}
+.tallies{display:flex;flex-direction:column;gap:6px;}
+.tal{display:flex;align-items:center;gap:10px;font-size:.86rem;}
+.tal .bar{height:7px;border-radius:4px;background:var(--amber);flex:none;}
+.tal .nm{flex:1;}
+.tal .ct{font-family:var(--mono);font-size:.7rem;color:var(--text-dim);}
+.note{font-size:.9rem;line-height:1.65;color:var(--text-dim);}
+.note a{color:var(--amber);}
+.empty{color:var(--text-dim);line-height:1.7;}
+footer{margin-top:40px;text-align:center;font-family:var(--mono);font-size:.68rem;color:var(--text-dim);}
+footer a{color:var(--entry);text-decoration:none;}
+@media(max-width:700px){
+  body{padding:calc(14px + env(safe-area-inset-top)) 12px 36px;}
+  h1{font-size:2rem;} .panel{padding:14px;}
+  .btn{padding:11px 14px;} .btn.sm{padding:10px 12px;}
+  input[type=text]{font-size:16px;}
+  .moves{max-height:260px;}
+}
+@media (prefers-reduced-motion:reduce){ .gc,.ray,.gc.fresh .v{animation:none!important;transition:none!important;} }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <div class="crumb">
+    <a class="backlink" href="index.html">← Back to the board</a>
+    <a class="backlink v" href="library.html">Technique library</a>
+    <a class="backlink a" href="stuck.html">Stuck?</a>
+  </div>
+  <h1>Step-by-step <em>solver</em></h1>
+  <p class="lede">Paste a puzzle and watch it come apart one deduction at a time. Every move names the technique
+  and spells out the reasoning, so you can <b>jump to the step that stumped you</b> rather than sit through the easy ones.</p>
+</header>
+
+<div class="inbar">
+  <span class="lbl">puzzle code</span>
+  <input type="text" id="code" spellcheck="false" placeholder="81 characters, . or 0 for a blank">
+  <button class="btn go" id="run">Walk it through</button>
+  <button class="btn sm" id="sample">Use a sample</button>
+  <div class="msg" id="msg"></div>
+</div>
+
+<div id="stage"></div>
+
+<footer>
+  <a href="index.html">the board</a> · <a href="library.html">technique library</a> · <a href="stuck.html">when you're stuck</a>
+</footer>
+</div>
+
+<script>
+
+/* ==========================================================
+   ENGINE
+   ========================================================== */
+const idx=(r,c)=>r*9+c;
+const rowOf=c=>Math.floor(c/9), colOf=c=>c%9;
+const boxOf=c=>Math.floor(rowOf(c)/3)*3+Math.floor(colOf(c)/3);
+
+function unitCells(type,i){
+  const out=[];
+  if(type==='row') for(let c=0;c<9;c++) out.push(idx(i,c));
+  if(type==='col') for(let r=0;r<9;r++) out.push(idx(r,i));
+  if(type==='box'){const br=Math.floor(i/3)*3,bc=(i%3)*3;
+    for(let r=br;r<br+3;r++) for(let c=bc;c<bc+3;c++) out.push(idx(r,c));}
+  return out;
+}
+const ALL_UNITS=[];
+for(const t of ['row','col','box']) for(let i=0;i<9;i++) ALL_UNITS.push({type:t,i,cells:unitCells(t,i)});
+const PEERS=[],PEERSET=[];
+for(let c=0;c<81;c++){
+  const s=new Set();
+  unitCells('row',rowOf(c)).forEach(x=>s.add(x));
+  unitCells('col',colOf(c)).forEach(x=>s.add(x));
+  unitCells('box',boxOf(c)).forEach(x=>s.add(x));
+  s.delete(c); PEERSET.push(s); PEERS.push([...s]);
+}
+const sees=(a,b)=>PEERSET[a].has(b);
+
+function computeCandidates(board){
+  const out=[];
+  for(let c=0;c<81;c++){
+    if(board[c]!==0){out.push(new Set());continue;}
+    const s=new Set([1,2,3,4,5,6,7,8,9]);
+    for(const p of PEERS[c]) if(board[p]!==0) s.delete(board[p]);
+    out.push(s);
+  }
+  return out;
+}
+const rc=c=>`R${rowOf(c)+1}C${colOf(c)+1}`;
+const rcList=cs=>cs.map(rc).join(', ');
+const unitName=u=>u.type==='row'?`row ${u.i+1}`:u.type==='col'?`column ${u.i+1}`:`box ${u.i+1}`;
+function combinations(arr,k){const res=[];(function h(s,co){
+  if(co.length===k){res.push([...co]);return;}
+  for(let i=s;i<arr.length;i++){co.push(arr[i]);h(i+1,co);co.pop();}})(0,[]);return res;}
+function commonPeers(cells){
+  let out=null;
+  for(const c of cells){const s=PEERSET[c];out=out===null?new Set(s):new Set([...out].filter(x=>s.has(x)));}
+  for(const c of cells) out.delete(c);
+  return [...out];
+}
+
+function findNakedSingle(b,cd){
+  for(let c=0;c<81;c++){
+    if(b[c]!==0) continue;
+    if(cd[c].size===1){const v=[...cd[c]][0];
+      return{key:'naked-single',title:'Naked Single',where:`${rc(c)}`,
+        nudge:`Look at <span class="cellref">${rc(c)}</span>. Count what's already in its row, column and box — only one digit is left over.`,
+        explanation:`<span class="cellref">${rc(c)}</span> has just one candidate remaining: <b>${v}</b>. Every other digit already appears in its row, column, or box, so nothing else can go there.`,
+        highlights:{[c]:'target'},marks:{[c]:[v]},placements:[{cell:c,value:v}],eliminations:[]};}
+  }
+  return null;
+}
+function findHiddenSingle(b,cd){
+  for(const u of ALL_UNITS) for(let v=1;v<=9;v++){
+    const spots=u.cells.filter(c=>b[c]===0&&cd[c].has(v));
+    if(spots.length===1){
+      const c=spots[0]; if(cd[c].size===1) continue;
+      const hl=Object.fromEntries(u.cells.map(x=>[x,x===c?'target':'scope']));
+      return{key:'hidden-single',title:'Hidden Single',where:unitName(u),
+        nudge:`Scan <b>${unitName(u)}</b> and ask where the digit <b>${v}</b> is still allowed to go.`,
+        explanation:`In ${unitName(u)}, the digit <b>${v}</b> fits in only one place: <span class="cellref">${rc(c)}</span>. Every other empty cell there is blocked from being ${v}. It doesn't matter that ${rc(c)} still shows other candidates — ${v} has nowhere else to live in this ${u.type}, so it must go here.`,
+        highlights:hl,marks:{[c]:[v]},placements:[{cell:c,value:v}],eliminations:[]};
+    }
+  }
+  return null;
+}
+function findPointing(b,cd){
+  for(let bx=0;bx<9;bx++){
+    const cells=unitCells('box',bx).filter(c=>b[c]===0);
+    for(let v=1;v<=9;v++){
+      const spots=cells.filter(c=>cd[c].has(v));
+      if(spots.length<2) continue;
+      const rows=new Set(spots.map(rowOf)),cols=new Set(spots.map(colOf));
+      if(rows.size===1){
+        const r=[...rows][0];
+        const rest=unitCells('row',r).filter(c=>boxOf(c)!==bx&&b[c]===0&&cd[c].has(v));
+        if(rest.length) return{key:'pointing',title:'Pointing Pair / Triple',where:`box ${bx+1}`,
+          nudge:`In <b>box ${bx+1}</b>, see where the digit <b>${v}</b> can still go. All of those cells sit in one row.`,
+          explanation:`Inside box ${bx+1}, candidate <b>${v}</b> survives only at ${rcList(spots)} — every one of them in row ${r+1}. Box ${bx+1} must contain a ${v} somewhere, and it can only be in that row, so the ${v} for row ${r+1} is already spoken for. It can be struck from the rest of row ${r+1}: ${rcList(rest)}.`,
+          highlights:Object.fromEntries([...spots.map(c=>[c,'target']),...rest.map(c=>[c,'elim'])]),
+          marks:Object.fromEntries([...spots,...rest].map(c=>[c,[v]])),
+          placements:[],eliminations:rest.map(c=>({cell:c,value:v}))};
+      }
+      if(cols.size===1){
+        const cc=[...cols][0];
+        const rest=unitCells('col',cc).filter(c=>boxOf(c)!==bx&&b[c]===0&&cd[c].has(v));
+        if(rest.length) return{key:'pointing',title:'Pointing Pair / Triple',where:`box ${bx+1}`,
+          nudge:`In <b>box ${bx+1}</b>, see where the digit <b>${v}</b> can still go. All of those cells sit in one column.`,
+          explanation:`Inside box ${bx+1}, candidate <b>${v}</b> survives only at ${rcList(spots)} — every one of them in column ${cc+1}. The box's ${v} must land in that column, so ${v} can be struck from the rest of column ${cc+1}: ${rcList(rest)}.`,
+          highlights:Object.fromEntries([...spots.map(c=>[c,'target']),...rest.map(c=>[c,'elim'])]),
+          marks:Object.fromEntries([...spots,...rest].map(c=>[c,[v]])),
+          placements:[],eliminations:rest.map(c=>({cell:c,value:v}))};
+      }
+    }
+  }
+  return null;
+}
+function findBoxLine(b,cd){
+  for(const type of ['row','col']) for(let i=0;i<9;i++){
+    const cells=unitCells(type,i).filter(c=>b[c]===0);
+    for(let v=1;v<=9;v++){
+      const spots=cells.filter(c=>cd[c].has(v));
+      if(spots.length<2) continue;
+      const boxes=new Set(spots.map(boxOf));
+      if(boxes.size!==1) continue;
+      const bx=[...boxes][0];
+      const rest=unitCells('box',bx).filter(c=>!cells.includes(c)&&b[c]===0&&cd[c].has(v));
+      if(!rest.length) continue;
+      const ln=type==='row'?`row ${i+1}`:`column ${i+1}`;
+      return{key:'box-line',title:'Box/Line Reduction',where:ln,
+        nudge:`In <b>${ln}</b>, find every place the digit <b>${v}</b> could still go. They're all crammed into one box.`,
+        explanation:`Along ${ln}, candidate <b>${v}</b> only appears at ${rcList(spots)} — all inside box ${bx+1}. That ${type} needs a ${v}, and it can only come from inside the box, which uses up the box's only ${v}. So ${v} goes from the rest of box ${bx+1}: ${rcList(rest)}.`,
+        highlights:Object.fromEntries([...spots.map(c=>[c,'target']),...rest.map(c=>[c,'elim'])]),
+        marks:Object.fromEntries([...spots,...rest].map(c=>[c,[v]])),
+        placements:[],eliminations:rest.map(c=>({cell:c,value:v}))};
+    }
+  }
+  return null;
+}
+const SUB={2:'Pair',3:'Triple',4:'Quad'};
+function findNakedSubset(b,cd,n){
+  for(const u of ALL_UNITS){
+    const em=u.cells.filter(c=>b[c]===0&&cd[c].size>=2&&cd[c].size<=n);
+    if(em.length<n) continue;
+    for(const combo of combinations(em,n)){
+      const un=new Set();combo.forEach(c=>cd[c].forEach(v=>un.add(v)));
+      if(un.size!==n) continue;
+      const others=u.cells.filter(c=>b[c]===0&&!combo.includes(c));
+      const el=[];
+      for(const c of others) for(const v of un) if(cd[c].has(v)) el.push({cell:c,value:v});
+      if(!el.length) continue;
+      const nums=[...un].sort((a,b2)=>a-b2);
+      return{key:`naked-${n}`,title:`Naked ${SUB[n]}`,where:unitName(u),
+        nudge:`In <b>${unitName(u)}</b>, look at ${rcList(combo)}. Between them they only offer ${n} different digits.`,
+        explanation:`In ${unitName(u)}, the cells ${rcList(combo)} draw from only {${nums.join(', ')}} — ${n} cells, ${n} digits. Those digits have to be distributed among exactly those cells, in some order, which uses every one of them up. None of {${nums.join(', ')}} can appear anywhere else in the ${u.type}.`,
+        highlights:Object.fromEntries([...combo.map(c=>[c,'target']),...el.map(e=>[e.cell,'elim'])]),
+        marks:Object.fromEntries([...combo.map(c=>[c,[...cd[c]]]),...el.map(e=>[e.cell,[e.value]])]),
+        placements:[],eliminations:el};
+    }
+  }
+  return null;
+}
+function findHiddenSubset(b,cd,n){
+  for(const u of ALL_UNITS){
+    const em=u.cells.filter(c=>b[c]===0);
+    const sp={};
+    for(let v=1;v<=9;v++){const s=em.filter(c=>cd[c].has(v));if(s.length>=2&&s.length<=n) sp[v]=s;}
+    const vals=Object.keys(sp).map(Number);
+    if(vals.length<n) continue;
+    for(const combo of combinations(vals,n)){
+      const cu=new Set();combo.forEach(v=>sp[v].forEach(c=>cu.add(c)));
+      if(cu.size!==n) continue;
+      const el=[];
+      for(const c of cu) for(const v of cd[c]) if(!combo.includes(v)) el.push({cell:c,value:v});
+      if(!el.length) continue;
+      const cells=[...cu];
+      return{key:`hidden-${n}`,title:`Hidden ${SUB[n]}`,where:unitName(u),
+        nudge:`In <b>${unitName(u)}</b>, track the digits {${combo.join(', ')}}. They're squeezed into only ${n} cells.`,
+        explanation:`In ${unitName(u)}, the digits {${combo.join(', ')}} can only be placed at ${rcList(cells)}. That's ${n} digits needing ${n} cells, so those cells are reserved entirely for them — every other candidate showing in ${rcList(cells)} is impossible and can be rubbed out.`,
+        highlights:Object.fromEntries(cells.map(c=>[c,'target'])),
+        marks:Object.fromEntries(cells.map(c=>[c,[...cd[c]].filter(v=>!combo.includes(v))])),
+        placements:[],eliminations:el};
+    }
+  }
+  return null;
+}
+const FISH={2:'X-Wing',3:'Swordfish',4:'Jellyfish'};
+function findFish(b,cd,n){
+  for(const bt of ['row','col']){
+    const ct=bt==='row'?'col':'row', pos=bt==='row'?colOf:rowOf;
+    for(let v=1;v<=9;v++){
+      const lines=[];
+      for(let i=0;i<9;i++){
+        const cs=unitCells(bt,i).filter(c=>b[c]===0&&cd[c].has(v));
+        if(cs.length>=2&&cs.length<=n) lines.push({i,cells:cs});
+      }
+      if(lines.length<n) continue;
+      for(const combo of combinations(lines,n)){
+        const cover=new Set();combo.forEach(l=>l.cells.forEach(c=>cover.add(pos(c))));
+        if(cover.size!==n) continue;
+        const base=[];combo.forEach(l=>l.cells.forEach(c=>base.push(c)));
+        const tg=[];
+        for(const p of cover) for(const c of unitCells(ct,p))
+          if(b[c]===0&&cd[c].has(v)&&!base.includes(c)) tg.push(c);
+        if(!tg.length) continue;
+        const bN=bt==='row'?'rows':'columns', cN=ct==='row'?'rows':'columns';
+        const lineIds=combo.map(l=>l.i+1).join(', ');
+        const covIds=[...cover].sort((a,b2)=>a-b2).map(p=>p+1).join(', ');
+        return{key:`fish-${n}`,title:FISH[n],where:`${bN} ${lineIds}`,
+          nudge:`Track digit <b>${v}</b> across <b>${bN} ${lineIds}</b>. Notice how few ${cN} its candidates occupy.`,
+          explanation:`Look at candidate <b>${v}</b> in ${bN} ${lineIds}. In all ${n} of those ${bN} it only appears in ${cN} ${covIds}. Each of those ${bN} needs one ${v}, and each must take a different ${ct==='col'?'column':'row'} — so between them they consume all ${n} of ${cN} ${covIds}. No other cell in those ${cN} can be ${v}: ${rcList(tg)}.`,
+          highlights:Object.fromEntries([...base.map(c=>[c,'target']),...tg.map(c=>[c,'elim'])]),
+          marks:Object.fromEntries([...base,...tg].map(c=>[c,[v]])),
+          placements:[],eliminations:tg.map(c=>({cell:c,value:v}))};
+      }
+    }
+  }
+  return null;
+}
+function findSkyscraper(b,cd){
+  for(const bt of ['row','col']){
+    const pos=bt==='row'?colOf:rowOf;
+    for(let v=1;v<=9;v++){
+      const lines=[];
+      for(let i=0;i<9;i++){
+        const cs=unitCells(bt,i).filter(c=>b[c]===0&&cd[c].has(v));
+        if(cs.length===2) lines.push({i,cells:cs});
+      }
+      for(let a=0;a<lines.length;a++) for(let z=a+1;z<lines.length;z++){
+        const A=lines[a].cells,B=lines[z].cells;
+        for(const ba of A) for(const bb of B){
+          if(pos(ba)!==pos(bb)) continue;
+          const ra=A.find(c=>c!==ba), rb=B.find(c=>c!==bb);
+          if(pos(ra)===pos(rb)) continue;
+          const tg=commonPeers([ra,rb]).filter(c=>b[c]===0&&cd[c].has(v)&&![...A,...B].includes(c));
+          if(!tg.length) continue;
+          const shared=bt==='row'?`column ${pos(ba)+1}`:`row ${pos(ba)+1}`;
+          return{key:'skyscraper',title:'Skyscraper',where:`${bt}s ${lines[a].i+1} & ${lines[z].i+1}`,
+            nudge:`Digit <b>${v}</b> has exactly two homes in ${bt} ${lines[a].i+1} and two in ${bt} ${lines[z].i+1}. See what they share.`,
+            explanation:`Candidate <b>${v}</b> has exactly two spots in ${bt} ${lines[a].i+1} and exactly two in ${bt} ${lines[z].i+1}. One end of each pair sits in ${shared}, which can hold only a single ${v} — so those two ends can't both be ${v}. Whichever one fails, its ${bt} still needs a ${v}, which forces the far end. So at least one of <span class="cellref">${rc(ra)}</span> and <span class="cellref">${rc(rb)}</span> is ${v}, and any cell seeing both of them is ruled out: ${rcList(tg)}.`,
+            highlights:Object.fromEntries([[ba,'scope'],[bb,'scope'],[ra,'target'],[rb,'target'],...tg.map(c=>[c,'elim'])]),
+            marks:Object.fromEntries([ba,bb,ra,rb,...tg].map(c=>[c,[v]])),
+            placements:[],eliminations:tg.map(c=>({cell:c,value:v}))};
+        }
+      }
+    }
+  }
+  return null;
+}
+function findXYWing(b,cd){
+  const bi=[];for(let c=0;c<81;c++) if(b[c]===0&&cd[c].size===2) bi.push(c);
+  for(const pv of bi){
+    const [X,Y]=[...cd[pv]];
+    for(const p1 of bi){
+      if(p1===pv||!sees(pv,p1)) continue;
+      for(const p2 of bi){
+        if(p2===pv||p2===p1||!sees(pv,p2)) continue;
+        for(const [a,b2] of [[X,Y],[Y,X]]){
+          if(!cd[p1].has(a)||cd[p1].has(b2)) continue;
+          if(!cd[p2].has(b2)||cd[p2].has(a)) continue;
+          const z1=[...cd[p1]].find(z=>z!==a), z2=[...cd[p2]].find(z=>z!==b2);
+          if(z1!==z2||z1===X||z1===Y) continue;
+          const Z=z1;
+          const tg=commonPeers([p1,p2]).filter(c=>c!==pv&&b[c]===0&&cd[c].has(Z));
+          if(!tg.length) continue;
+          return{key:'xy-wing',title:'XY-Wing',where:rc(pv),
+            nudge:`Start at <span class="cellref">${rc(pv)}</span> — it has two candidates. Follow what each one forces in the two cells it sees.`,
+            explanation:`<span class="cellref">${rc(pv)}</span> is {${a}, ${b2}}. It sees <span class="cellref">${rc(p1)}</span> = {${a}, ${Z}} and <span class="cellref">${rc(p2)}</span> = {${b2}, ${Z}}. Test both cases: if the pivot is ${a}, then ${rc(p1)} can't be ${a}, so it's ${Z}; if the pivot is ${b2}, then ${rc(p2)} is ${Z}. The pivot must be one or the other, so <b>at least one wing is ${Z}</b> no matter what. Any cell that sees both wings therefore can't be ${Z}: ${rcList(tg)}.`,
+            highlights:Object.fromEntries([[pv,'scope'],[p1,'target'],[p2,'target'],...tg.map(c=>[c,'elim'])]),
+            marks:Object.fromEntries([[pv,[a,b2]],[p1,[a,Z]],[p2,[b2,Z]],...tg.map(c=>[c,[Z]])]),
+            placements:[],eliminations:tg.map(c=>({cell:c,value:Z}))};
+        }
+      }
+    }
+  }
+  return null;
+}
+function findXYZWing(b,cd){
+  for(let pv=0;pv<81;pv++){
+    if(b[pv]!==0||cd[pv].size!==3) continue;
+    const trio=[...cd[pv]];
+    const wings=PEERS[pv].filter(c=>b[c]===0&&cd[c].size===2&&[...cd[c]].every(v=>trio.includes(v)));
+    for(const [w1,w2] of combinations(wings,2)){
+      if(new Set([...cd[w1],...cd[w2]]).size!==3) continue;
+      const sh=[...cd[w1]].filter(v=>cd[w2].has(v));
+      if(sh.length!==1) continue;
+      const Z=sh[0];
+      const tg=commonPeers([pv,w1,w2]).filter(c=>b[c]===0&&cd[c].has(Z));
+      if(!tg.length) continue;
+      return{key:'xyz-wing',title:'XYZ-Wing',where:rc(pv),
+        nudge:`<span class="cellref">${rc(pv)}</span> has three candidates and sees two cells whose candidates are drawn from the same three.`,
+        explanation:`<span class="cellref">${rc(pv)}</span> = {${trio.sort((a,b2)=>a-b2).join(', ')}}, and it sees <span class="cellref">${rc(w1)}</span> = {${[...cd[w1]].sort((a,b2)=>a-b2).join(', ')}} and <span class="cellref">${rc(w2)}</span> = {${[...cd[w2]].sort((a,b2)=>a-b2).join(', ')}}. All three share the digit <b>${Z}</b>. Run the cases: whichever value the pivot takes, one of these three cells is forced to be ${Z}. A cell that sees all three can never be ${Z}: ${rcList(tg)}.`,
+        highlights:Object.fromEntries([[pv,'target'],[w1,'target'],[w2,'target'],...tg.map(c=>[c,'elim'])]),
+        marks:Object.fromEntries([[pv,[Z]],[w1,[Z]],[w2,[Z]],...tg.map(c=>[c,[Z]])]),
+        placements:[],eliminations:tg.map(c=>({cell:c,value:Z}))};
+    }
+  }
+  return null;
+}
+function findWWing(b,cd){
+  const bi=[];for(let c=0;c<81;c++) if(b[c]===0&&cd[c].size===2) bi.push(c);
+  for(let i=0;i<bi.length;i++) for(let j=i+1;j<bi.length;j++){
+    const A=bi[i],B=bi[j];
+    if(sees(A,B)) continue;
+    const ca=[...cd[A]].sort((x,y)=>x-y), cb=[...cd[B]].sort((x,y)=>x-y);
+    if(ca[0]!==cb[0]||ca[1]!==cb[1]) continue;
+    const [p,q]=ca;
+    for(const [X,Y] of [[p,q],[q,p]]){
+      for(const u of ALL_UNITS){
+        const sp=u.cells.filter(c=>b[c]===0&&cd[c].has(X));
+        if(sp.length!==2) continue;
+        const [s1,s2]=sp;
+        if([s1,s2].includes(A)||[s1,s2].includes(B)) continue;
+        if(!((sees(s1,A)&&sees(s2,B))||(sees(s1,B)&&sees(s2,A)))) continue;
+        const tg=commonPeers([A,B]).filter(c=>b[c]===0&&cd[c].has(Y));
+        if(!tg.length) continue;
+        return{key:'w-wing',title:'W-Wing',where:`${rc(A)} & ${rc(B)}`,
+          nudge:`<span class="cellref">${rc(A)}</span> and <span class="cellref">${rc(B)}</span> hold the same two candidates. Look for a link on ${X} joining them.`,
+          explanation:`<span class="cellref">${rc(A)}</span> and <span class="cellref">${rc(B)}</span> both hold exactly {${p}, ${q}}, and they don't see each other. In ${unitName(u)}, digit <b>${X}</b> has only two possible cells, ${rcList(sp)} — one of them must be ${X}. Each of those cells sees one of our pair, so one of the pair is forbidden from being ${X} and must fall back on <b>${Y}</b>. At least one of ${rc(A)} / ${rc(B)} is ${Y}, so ${Y} goes from every cell seeing both: ${rcList(tg)}.`,
+          highlights:Object.fromEntries([[A,'target'],[B,'target'],[s1,'scope'],[s2,'scope'],...tg.map(c=>[c,'elim'])]),
+          marks:Object.fromEntries([[A,[p,q]],[B,[p,q]],[s1,[X]],[s2,[X]],...tg.map(c=>[c,[Y]])]),
+          placements:[],eliminations:tg.map(c=>({cell:c,value:Y}))};
+      }
+    }
+  }
+  return null;
+}
+function findColoring(b,cd){
+  for(let v=1;v<=9;v++){
+    const adj=new Map();
+    const link=(a,b2)=>{
+      if(!adj.has(a))adj.set(a,new Set()); if(!adj.has(b2))adj.set(b2,new Set());
+      adj.get(a).add(b2); adj.get(b2).add(a);
+    };
+    for(const u of ALL_UNITS){
+      const sp=u.cells.filter(c=>b[c]===0&&cd[c].has(v));
+      if(sp.length===2) link(sp[0],sp[1]);
+    }
+    const seen=new Set();
+    for(const start of adj.keys()){
+      if(seen.has(start)) continue;
+      const col=new Map([[start,0]]); const q=[start]; seen.add(start);
+      while(q.length){const cur=q.shift();
+        for(const nb of adj.get(cur)) if(!col.has(nb)){col.set(nb,1-col.get(cur));seen.add(nb);q.push(nb);}}
+      if(col.size<4) continue;
+      const g=[[],[]];
+      for(const [c,k] of col) g[k].push(c);
+      for(const k of [0,1]){
+        for(let a=0;a<g[k].length;a++) for(let z=a+1;z<g[k].length;z++){
+          if(!sees(g[k][a],g[k][z])) continue;
+          const el=g[k].filter(c=>cd[c].has(v)).map(c=>({cell:c,value:v}));
+          if(!el.length) continue;
+          return{key:'coloring-trap',title:'Simple Colouring — colour trap',where:`digit ${v}`,
+            nudge:`Chain digit <b>${v}</b> through the units where it has only two homes, alternating true/false as you go.`,
+            explanation:`Follow digit <b>${v}</b> through every unit where it has exactly two possible cells, colouring alternately. One colour is entirely correct and the other entirely wrong. But <span class="cellref">${rc(g[k][a])}</span> and <span class="cellref">${rc(g[k][z])}</span> ended up the <b>same colour while sharing a unit</b> — they'd both have to be ${v}, which is impossible. So that whole colour is false and ${v} can be removed from all of it: ${rcList(g[k])}.`,
+            highlights:Object.fromEntries([...g[k].map(c=>[c,'elim']),...g[1-k].map(c=>[c,'scope'])]),
+            marks:Object.fromEntries([...g[0],...g[1]].map(c=>[c,[v]])),
+            placements:[],eliminations:el};
+        }
+      }
+      const tg=[];
+      for(let c=0;c<81;c++){
+        if(b[c]!==0||!cd[c].has(v)||col.has(c)) continue;
+        if(g[0].some(x=>sees(c,x))&&g[1].some(x=>sees(c,x))) tg.push(c);
+      }
+      if(tg.length) return{key:'coloring-wrap',title:'Simple Colouring — seeing both colours',where:`digit ${v}`,
+        nudge:`Chain digit <b>${v}</b> through the units where it has only two homes, alternating colours, then look for cells that see both colours.`,
+        explanation:`Colouring digit <b>${v}</b>'s two-cell links alternately splits them into two sets, and exactly one set is the true set of ${v}s. ${rcList(tg)} ${tg.length===1?'sees':'each see'} a cell of <i>both</i> colours — so whichever colour turns out true, a ${v} is already staring at ${tg.length===1?'it':'them'}. ${v} can be removed there.`,
+        highlights:Object.fromEntries([...g[0].map(c=>[c,'target']),...g[1].map(c=>[c,'scope']),...tg.map(c=>[c,'elim'])]),
+        marks:Object.fromEntries([...g[0],...g[1],...tg].map(c=>[c,[v]])),
+        placements:[],eliminations:tg.map(c=>({cell:c,value:v}))};
+    }
+  }
+  return null;
+}
+function findUR(b,cd){
+  for(let r1=0;r1<9;r1++)for(let r2=r1+1;r2<9;r2++)
+  for(let c1=0;c1<9;c1++)for(let c2=c1+1;c2<9;c2++){
+    const corners=[idx(r1,c1),idx(r1,c2),idx(r2,c1),idx(r2,c2)];
+    if(corners.some(c=>b[c]!==0)) continue;
+    if(new Set(corners.map(boxOf)).size!==2) continue;
+    for(const ex of corners){
+      const rest=corners.filter(c=>c!==ex);
+      if(!rest.every(c=>cd[c].size===2)) continue;
+      const pat=[...cd[rest[0]]].sort((a,b2)=>a-b2);
+      if(!rest.every(c=>{const s=[...cd[c]].sort((a,b2)=>a-b2);return s[0]===pat[0]&&s[1]===pat[1];})) continue;
+      if(!pat.every(v=>cd[ex].has(v))||cd[ex].size<3) continue;
+      return{key:'unique-rectangle',title:'Unique Rectangle (Type 1)',where:rc(ex),
+        nudge:`${rcList(rest)} all show the same two candidates, and <span class="cellref">${rc(ex)}</span> completes a rectangle with them.`,
+        explanation:`${rcList(rest)} each hold exactly {${pat.join(', ')}}, and with <span class="cellref">${rc(ex)}</span> they form a rectangle sitting in just two boxes. Suppose ${rc(ex)} were also only {${pat.join(', ')}} — then ${pat[0]} and ${pat[1]} could be swapped diagonally around the rectangle and you'd have two valid grids. A properly-set puzzle has exactly one solution, so ${rc(ex)} must take one of its <i>other</i> candidates. ${pat.join(' and ')} come out.`,
+        highlights:Object.fromEntries([...rest.map(c=>[c,'scope']),[ex,'target']]),
+        marks:Object.fromEntries([...rest.map(c=>[c,pat]),[ex,pat]]),
+        placements:[],eliminations:pat.map(v=>({cell:ex,value:v}))};
+    }
+  }
+  return null;
+}
+function findBUG(b,cd){
+  let tri=null;
+  for(let c=0;c<81;c++){
+    if(b[c]!==0) continue;
+    const n=cd[c].size;
+    if(n===2) continue;
+    if(n===3&&tri===null){tri=c;continue;}
+    return null;
+  }
+  if(tri===null) return null;
+  // Verify the BUG signature exactly: in every unit each missing digit must appear
+  // exactly twice, bar the odd digit at `tri`, which appears three times in the three
+  // units containing it. Counting one row is unsound — an all-bivalue grid can still
+  // hide a single, and a digit can then hit three in a row without being the BUG digit.
+  const bugShape=v=>{
+    for(const u of ALL_UNITS){
+      const empt=u.cells.filter(c=>b[c]===0);
+      if(!empt.length) continue;
+      const missing=new Set(); empt.forEach(c=>cd[c].forEach(d=>missing.add(d)));
+      for(const d of missing){
+        const n=empt.filter(c=>cd[c].has(d)).length;
+        const expect=(d===v&&u.cells.includes(tri))?3:2;
+        if(n!==expect) return false;
+      }
+    }
+    return true;
+  };
+  for(const v of cd[tri]){
+    if(bugShape(v)){
+      return{key:'bug',title:'BUG + 1',where:rc(tri),
+        nudge:`Every unsolved cell now has exactly two candidates — except <span class="cellref">${rc(tri)}</span>, which has three.`,
+        explanation:`Every remaining cell is down to two candidates apart from <span class="cellref">${rc(tri)}</span>, which has three. If it had two as well, every digit would appear exactly twice in every unit — and a grid like that always has two solutions, swapping the pairs. Since a proper puzzle has one, the extra candidate must be the answer. It's the digit appearing three times in this cell's row, column and box alike: <b>${v}</b>.`,
+        highlights:{[tri]:'target'},marks:{[tri]:[v]},
+        placements:[{cell:tri,value:v}],eliminations:[]};
+    }
+  }
+  return null;
+}
+
+const TECHS=[
+  b=>findNakedSingle(b[0],b[1]), b=>findHiddenSingle(b[0],b[1]),
+  b=>findPointing(b[0],b[1]), b=>findBoxLine(b[0],b[1]),
+  b=>findNakedSubset(b[0],b[1],2), b=>findHiddenSubset(b[0],b[1],2),
+  b=>findNakedSubset(b[0],b[1],3), b=>findHiddenSubset(b[0],b[1],3),
+  b=>findNakedSubset(b[0],b[1],4), b=>findHiddenSubset(b[0],b[1],4),
+  b=>findFish(b[0],b[1],2), b=>findSkyscraper(b[0],b[1]),
+  b=>findFish(b[0],b[1],3), b=>findXYWing(b[0],b[1]),
+  b=>findXYZWing(b[0],b[1]), b=>findWWing(b[0],b[1]),
+  b=>findColoring(b[0],b[1]), b=>findFish(b[0],b[1],4),
+  b=>findUR(b[0],b[1]), b=>findBUG(b[0],b[1]),
+];
+function nextStep(board,cands){
+  for(const fn of TECHS){const s=fn([board,cands]);if(s) return s;}
+  return null;
+}
+function applyToEngine(board,cands,step){
+  for(const p of step.placements){
+    board[p.cell]=p.value;cands[p.cell]=new Set();
+    for(const pe of PEERS[p.cell]) cands[pe].delete(p.value);
+  }
+  for(const e of step.eliminations) cands[e.cell].delete(e.value);
+}
+function backtrack(board,limit){
+  const b=board.slice();let n=0,first=null;
+  const ok=(r,c,v)=>{
+    for(let i=0;i<9;i++){if(b[r*9+i]===v)return false;if(b[i*9+c]===v)return false;}
+    const br=Math.floor(r/3)*3,bc=Math.floor(c/3)*3;
+    for(let dr=0;dr<3;dr++)for(let dc=0;dc<3;dc++)if(b[(br+dr)*9+bc+dc]===v)return false;
+    return true;};
+  (function go(){
+    if(limit&&n>=limit)return;
+    const p=b.indexOf(0);
+    if(p===-1){n++;if(!first)first=b.slice();return;}
+    const r=Math.floor(p/9),c=p%9;
+    for(let v=1;v<=9;v++) if(ok(r,c,v)){b[p]=v;go();b[p]=0;if(limit&&n>=limit)return;}
+  })();
+  return{n,first};
+}
+function conflictCells(vals){
+  const bad=new Set();
+  for(const u of ALL_UNITS){
+    const seen={};
+    for(const c of u.cells){const v=vals[c];if(!v)continue;
+      if(seen[v]!==undefined){bad.add(c);bad.add(seen[v]);}else seen[v]=c;}
+  }
+  return bad;
+}
+
+
+
+/* ==========================================================
+   WALKTHROUGH
+   ========================================================== */
+const $=id=>document.getElementById(id);
+const EASY=new Set(['naked-single','hidden-single']);
+let W=null;          // {states, steps, solved, stuckAt}
+let cursor=0, timer=null, playing=false, SPEED=1, showAll=true;
+
+function parse(str){
+  const clean=str.replace(/\s+/g,'');
+  if(clean.length!==81) return {err:`That code is ${clean.length} characters — it needs to be exactly 81.`};
+  const nums=[...clean].map(ch=>(ch==='.'||ch==='0')?0:parseInt(ch,10));
+  if(nums.some(n=>isNaN(n))) return {err:'That code contains something other than digits and dots.'};
+  if(conflictCells(nums).size) return {err:'That grid already breaks the rules — a digit repeats in a row, column or box.'};
+  const clues=nums.filter(v=>v!==0).length;
+  if(clues<17) return {err:`Only ${clues} clues. A Sudoku needs at least 17 to have a single solution.`};
+  const r=backtrack(nums,2);
+  if(r.n===0) return {err:'That grid has no solution.'};
+  if(r.n>1) return {err:'That grid has more than one solution, so there is no single line of reasoning to follow.'};
+  return {board:nums,solution:r.first};
+}
+
+function runSolve(board){
+  const states=[], steps=[];
+  const b=board.slice(), cd=computeCandidates(b);
+  for(let i=0;i<400;i++){
+    if(b.every(v=>v!==0)) break;
+    const st=nextStep(b,cd);
+    if(!st) break;
+    states.push({board:b.slice(),cands:cd.map(s=>[...s])});
+    steps.push(st);
+    applyToEngine(b,cd,st);
+  }
+  states.push({board:b.slice(),cands:cd.map(s=>[...s])});   // final position
+  return {states,steps,solved:b.every(v=>v!==0)};
+}
+
+function moveLabel(st){
+  if(st.placements.length){
+    const p=st.placements[0];
+    return rc(p.cell)+' = '+p.value;
+  }
+  const byVal={};
+  st.eliminations.forEach(e=>{(byVal[e.value]=byVal[e.value]||[]).push(e.cell);});
+  const parts=Object.entries(byVal).map(([v,cs])=>
+    '−'+v+' '+(cs.length>2?cs.length+' cells':cs.map(rc).join(' ')));
+  return parts.join(', ');
+}
+
+function render(){
+  if(!W) return;
+  const atEnd=cursor>=W.steps.length;
+  const state=W.states[Math.min(cursor,W.states.length-1)];
+  const step=atEnd?null:W.steps[cursor];
+  const prevStep=cursor>0?W.steps[cursor-1]:null;
+  const board=state.board, cands=state.cands;
+
+  // ---- board ----
+  const grid=$('grid');
+  const cuts={}, keys={};
+  if(step){
+    step.eliminations.forEach(e=>{(cuts[e.cell]=cuts[e.cell]||[]).push(e.value);});
+    for(const c in (step.marks||{})) keys[c]=step.marks[c];
+  }
+  grid.querySelectorAll('.ray').forEach(r=>r.remove());
+  for(let i=0;i<81;i++){
+    const el=grid.children[i];
+    el.className='gc'+((i%9===2||i%9===5)?' br':'')+((Math.floor(i/9)===2||Math.floor(i/9)===5)?' bb':'');
+    el.innerHTML='';
+    if(W.givens[i]!==0) el.classList.add('given');
+    const role=step?step.highlights[i]:null;
+    if(role==='scope') el.classList.add('scope');
+    else if(role==='target') el.classList.add('target');
+    else if(role==='elim') el.classList.add('elim');
+    // the digit this step placed, highlighted as it lands
+    if(prevStep&&prevStep.placements.some(p=>p.cell===i)) el.classList.add('fresh','target');
+    if(board[i]!==0){
+      const s=document.createElement('span'); s.className='v'; s.textContent=board[i]; el.appendChild(s);
+    }else{
+      const list=cands[i]||[];
+      const show=showAll?list:(keys[i]||cuts[i]?list:[]);
+      if(show.length){
+        const pw=document.createElement('div'); pw.className='pm';
+        for(let d=1;d<=9;d++){
+          const sp=document.createElement('span');
+          if(show.includes(d)){
+            sp.textContent=d;
+            if((cuts[i]||[]).includes(d)) sp.classList.add('cut');
+            else if((keys[i]||[]).includes(d)) sp.classList.add('key');
+          }
+          pw.appendChild(sp);
+        }
+        el.appendChild(pw);
+      }
+    }
+  }
+  if(step&&step.ray){
+    const r=document.createElement('div'); r.className='ray'+(step.ray.type==='col'?' col':'');
+    if(step.ray.type==='row'){r.style.left='0';r.style.width='100%';
+      r.style.top=(step.ray.i/9*100)+'%';r.style.height=(100/9)+'%';}
+    else {r.style.top='0';r.style.height='100%';
+      r.style.left=(step.ray.i/9*100)+'%';r.style.width=(100/9)+'%';}
+    grid.appendChild(r);
+  }
+
+  // ---- caption ----
+  const filled=board.filter(v=>v!==0).length;
+  $('prog').style.width=(filled/81*100)+'%';
+  if(step){
+    $('stepno').textContent='step '+(cursor+1)+' of '+W.steps.length;
+    $('tname').textContent=step.title;
+    const tag=$('tag');
+    tag.textContent=step.placements.length?'places a digit':'removes candidates';
+    tag.className='tag'+(step.placements.length?' place':'');
+    $('why').innerHTML=step.explanation;
+  }else{
+    $('stepno').textContent=W.solved?'complete':'no further move';
+    $('tname').textContent=W.solved?'Solved':'Stuck';
+    $('tag').textContent=filled+'/81 filled'; $('tag').className='tag place';
+    $('why').innerHTML=W.solved
+      ? 'Every cell is filled and consistent. The move list is above — click any step to go back to it.'
+      : 'None of the twenty techniques finds a forced move from here. This grid needs something heavier, like a forcing chain. You can reveal one digit to break the deadlock.';
+  }
+
+  // ---- move list ----
+  [...$('moves').children].forEach((m,k)=>m.classList.toggle('now',k===cursor));
+  const cur=$('moves').children[cursor];
+  if(cur&&cur.scrollIntoView) cur.scrollIntoView({block:'nearest'});
+
+  $('back').disabled=cursor===0;
+  $('next').disabled=atEnd;
+  $('skip').disabled=atEnd;
+  $('play').textContent=playing?'❚❚ Pause':'▶ Play';
+  $('play').disabled=atEnd;
+  $('reveal').style.display=(!W.solved&&atEnd)?'':'none';
+}
+
+function go(n){ cursor=Math.max(0,Math.min(n,W.steps.length)); render(); }
+function tick(){
+  if(cursor>=W.steps.length){ stop(); return; }
+  go(cursor+1);
+  timer=setTimeout(tick, (W.steps[Math.min(cursor,W.steps.length-1)]?2000:1400)*SPEED);
+}
+function start(){ if(playing||cursor>=W.steps.length)return; playing=true; render(); tick(); }
+function stop(){ playing=false; clearTimeout(timer); render(); }
+
+function buildStage(){
+  $('stage').innerHTML=`
+    <div class="main">
+      <div class="panel">
+        <div class="boardwrap"><div class="grid" id="grid"></div></div>
+        <div class="ctrls">
+          <button class="btn sm on" id="candToggle">Candidates on</button>
+          <button class="btn sm" id="slow">slow</button>
+          <button class="btn sm on" id="norm">normal</button>
+          <button class="btn sm" id="brisk">brisk</button>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="prog"><i id="prog" style="width:0"></i></div>
+        <div class="stepline">
+          <span class="stepno" id="stepno"></span>
+          <span class="tname" id="tname"></span>
+          <span class="tag" id="tag"></span>
+        </div>
+        <p class="why" id="why"></p>
+        <div class="ctrls">
+          <button class="btn sm" id="back">‹ Back</button>
+          <button class="btn go sm" id="play">▶ Play</button>
+          <button class="btn sm" id="next">Next ›</button>
+          <button class="btn sm" id="skip">Skip to next interesting ››</button>
+          <button class="btn sm" id="reveal" style="display:none">Reveal a digit</button>
+        </div>
+        <div class="movehead"><h3>every move</h3></div>
+        <div class="moves" id="moves"></div>
+      </div>
+    </div>
+    <div class="panel summary" id="summary"></div>`;
+
+  const grid=$('grid');
+  for(let i=0;i<81;i++){
+    const d=document.createElement('div');
+    d.className='gc'+((i%9===2||i%9===5)?' br':'')+((Math.floor(i/9)===2||Math.floor(i/9)===5)?' bb':'');
+    grid.appendChild(d);
+  }
+  const moves=$('moves');
+  W.steps.forEach((st,i)=>{
+    const b=document.createElement('button');
+    b.className='mv'+(EASY.has(st.key)?'':' hard');
+    b.innerHTML=`<span class="mvn">${i+1}</span><span class="mvt">${st.title}</span><span class="mvd">${moveLabel(st)}</span>`;
+    b.onclick=()=>{ stop(); go(i); };
+    moves.appendChild(b);
+  });
+  const end=document.createElement('button');
+  end.className='mv';
+  end.innerHTML=`<span class="mvn">—</span><span class="mvt">${W.solved?'Solved':'No further move'}</span>`;
+  end.onclick=()=>{ stop(); go(W.steps.length); };
+  moves.appendChild(end);
+
+  $('back').onclick=()=>{ stop(); go(cursor-1); };
+  $('next').onclick=()=>{ stop(); go(cursor+1); };
+  $('play').onclick=()=>playing?stop():start();
+  $('skip').onclick=()=>{
+    stop();
+    let n=cursor+1;
+    while(n<W.steps.length&&EASY.has(W.steps[n].key)) n++;
+    go(n);
+  };
+  $('reveal').onclick=()=>{
+    const st=W.states[W.states.length-1];
+    const empt=[];for(let i=0;i<81;i++) if(st.board[i]===0) empt.push(i);
+    if(!empt.length) return;
+    const pick=empt.reduce((best,c)=>(st.cands[c].length<st.cands[best].length?c:best),empt[0]);
+    const b=st.board.slice(); b[pick]=W.solution[pick];
+    load(b.map(v=>v===0?'.':v).join(''),true);
+  };
+  $('candToggle').onclick=()=>{
+    showAll=!showAll;
+    $('candToggle').textContent=showAll?'Candidates on':'Candidates off';
+    $('candToggle').classList.toggle('on',showAll);
+    render();
+  };
+  [['slow',1.5],['norm',1],['brisk',0.7]].forEach(([id,v])=>{
+    $(id).onclick=()=>{
+      SPEED=v;
+      ['slow','norm','brisk'].forEach(x=>$(x).classList.toggle('on',x===id));
+    };
+  });
+  renderSummary();
+}
+
+function renderSummary(){
+  const tally={};
+  W.steps.forEach(s=>tally[s.title]=(tally[s.title]||0)+1);
+  const rows=Object.entries(tally).sort((a,b)=>b[1]-a[1]);
+  const max=rows.length?rows[0][1]:1;
+  const hardest=W.steps.filter(s=>!EASY.has(s.key)).map(s=>s.title);
+  const clues=W.givens.filter(v=>v!==0).length;
+  $('summary').innerHTML=`
+    <div class="sgrid">
+      <div class="stat"><div class="n">${clues}</div><div class="l">clues given</div></div>
+      <div class="stat"><div class="n">${W.steps.length}</div><div class="l">deductions</div></div>
+      <div class="stat"><div class="n">${rows.length}</div><div class="l">techniques used</div></div>
+      <div class="stat"><div class="n">${W.steps.filter(s=>!EASY.has(s.key)).length}</div><div class="l">beyond singles</div></div>
+    </div>
+    <div class="tallies">${rows.map(([t,n])=>
+      `<div class="tal"><span class="bar" style="width:${Math.max(8,n/max*120)}px;opacity:${EASY.has(W.steps.find(s=>s.title===t).key)?.45:1}"></span>
+       <span class="nm">${t}</span><span class="ct">${n}</span></div>`).join('')}</div>
+    <p class="note">${hardest.length
+      ? `The step that makes this puzzle what it is: <b>${[...new Set(hardest)].slice(-1)[0]}</b>. Each technique is explained and animated in the <a href="library.html">library</a>.`
+      : `This one falls entirely to singles — no eliminations needed. See the <a href="stuck.html">stuck guide</a> for the scanning order that finds them fastest.`}</p>`;
+}
+
+function load(code,quiet){
+  const p=parse(code);
+  if(p.err){ say(p.err); return false; }
+  W=runSolve(p.board);
+  W.givens=p.board.slice();
+  W.solution=p.solution;
+  cursor=0; playing=false; clearTimeout(timer);
+  $('code').value=code.replace(/\s+/g,'');
+  buildStage(); render();
+  say(quiet?'Carried on from the revealed digit.'
+    :`${W.steps.length} deductions, ${Object.keys(W.steps.reduce((m,s)=>(m[s.title]=1,m),{})).length} techniques.`,true);
+  try{ history.replaceState(null,'','#p='+code.replace(/\s+/g,'')); }catch(_){}
+  return true;
+}
+function say(t,ok){ $('msg').textContent=t; $('msg').classList.toggle('ok',!!ok); }
+
+$('run').onclick=()=>load($('code').value.trim());
+$('code').addEventListener('keydown',e=>{ if(e.key==='Enter') load($('code').value.trim()); });
+$('sample').onclick=()=>load('.5..3.89..4..2..5......6...7....832.........1.1.9...7...2.....58....3.4...6.4...8');
+
+document.addEventListener('keydown',e=>{
+  if(!W||e.target.tagName==='INPUT') return;
+  if(e.key==='ArrowRight'){ stop(); go(cursor+1); e.preventDefault(); }
+  if(e.key==='ArrowLeft'){ stop(); go(cursor-1); e.preventDefault(); }
+  if(e.key===' '){ playing?stop():start(); e.preventDefault(); }
+});
+
+const hash=(location.hash.match(/p=([.0-9]{81})/)||[])[1];
+if(hash) load(hash);
+else $('stage').innerHTML='<div class="panel"><p class="empty">Paste a puzzle code above and press <b>Walk it through</b>, '+
+  'or open this page from the board with <b>Walk through →</b> to carry the current puzzle over. '+
+  'No code to hand? Press <b>Use a sample</b>.</p></div>';
+</script>
+</body>
+</html>
